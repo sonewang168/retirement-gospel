@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #F5F5F5;
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+        
+        .hero {
+            position: relative;
+            height: 250px;
+            background: linear-gradient(135deg, #E74C3C, #C0392B);
+        }
+        
+        .hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .hero-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: white;
+        }
+        
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .hero-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .info-card h3 {
+            font-size: 16px;
+            color: #2C3E50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #ECF0F1;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            width: 80px;
+            color: #7F8C8D;
+            font-size: 14px;
+        }
+        
+        .info-value {
+            flex: 1;
+            font-size: 14px;
+            color: #2C3E50;
+        }
+        
+        .description {
+            font-size: 15px;
+            line-height: 1.8;
+            color: #2C3E50;
+        }
+        
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .tag {
+            padding: 6px 12px;
+            background: #ECF0F1;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #7F8C8D;
+        }
+        
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .rating .stars {
+            color: #F39C12;
+            font-size: 16px;
+        }
+        
+        .rating .score {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2C3E50;
+        }
+        
+        .rating .count {
+            font-size: 12px;
+            color: #7F8C8D;
+        }
+        
+        .footer-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            box-shadow: 0 -2px 20px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #E74C3C;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #ECF0F1;
+            color: #2C3E50;
+        }
+        
+        .btn-outline {
+            background: white;
+            border: 2px solid #E74C3C;
+            color: #E74C3C;
+        }
+        
+        .difficulty-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .difficulty-easy { background: #D5F4E6; color: #27AE60; }
+        .difficulty-moderate { background: #FEF3CD; color: #F39C12; }
+        .difficulty-challenging { background: #FADBD8; color: #E74C3C; }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #ECF0F1;
+            border-top-color: #E74C3C;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <% if (activity) { %>
+        <!-- Hero Image -->
+        <div class="hero">
+            <% if (activity.thumbnailUrl) { %>
+            <img src="<%= activity.thumbnailUrl %>" alt="<%= activity.name %>">
+            <% } %>
+            <div class="hero-overlay">
+                <span class="category-badge"><%= activity.category %></span>
+                <h1 class="hero-title"><%= activity.name %></h1>
+            </div>
+        </div>
+        
+        <div class="content">
+            <!-- Rating -->
+            <div class="info-card">
+                <div class="rating">
+                    <span class="stars">★★★★★</span>
+                    <span class="score"><%= activity.rating || 4.5 %></span>
+                    <span class="count">(<%= activity.reviewCount || 0 %> 則評價)</span>
+                </div>
+            </div>
+            
+            <!-- Basic Info -->
+            <div class="info-card">
+                <h3>📍 基本資訊</h3>
+                <div class="info-row">
+                    <span class="info-label">地址</span>
+                    <span class="info-value"><%= activity.address || activity.city + activity.district %></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">時長</span>
+                    <span class="info-value"><%= formatDuration(activity.estimatedDuration) %></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">費用</span>
+                    <span class="info-value"><%= formatCost(activity.costMin, activity.costMax) %></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">難度</span>
+                    <span class="info-value">
+                        <span class="difficulty-badge difficulty-<%= activity.difficultyLevel || 'easy' %>">
+                            <%= getDifficultyText(activity.difficultyLevel) %>
+                        </span>
+                    </span>
+                </div>
+                <% if (activity.isAccessible) { %>
+                <div class="info-row">
+                    <span class="info-label">無障礙</span>
+                    <span class="info-value">♿ <%= activity.accessibilityInfo || '有無障礙設施' %></span>
+                </div>
+                <% } %>
+                <% if (activity.publicTransitInfo) { %>
+                <div class="info-row">
+                    <span class="info-label">交通</span>
+                    <span class="info-value"><%= activity.publicTransitInfo %></span>
+                </div>
+                <% } %>
+            </div>
+            
+            <!-- Description -->
+            <div class="info-card">
+                <h3>📝 活動介紹</h3>
+                <p class="description"><%= activity.description || '暫無介紹' %></p>
+                
+                <% if (activity.tags && activity.tags.length > 0) { %>
+                <div class="tags">
+                    <% activity.tags.forEach(tag => { %>
+                    <span class="tag">#<%= tag %></span>
+                    <% }) %>
+                </div>
+                <% } %>
+            </div>
+        </div>
+        
+        <!-- Footer Actions -->
+        <div class="footer-actions">
+            <button class="btn btn-secondary" onclick="openMap()">
+                🗺️ 導航
+            </button>
+            <button class="btn btn-outline" onclick="saveActivity()">
+                ❤️ 收藏
+            </button>
+            <button class="btn btn-primary" onclick="addToSchedule()">
+                ✓ 加入行程
+            </button>
+        </div>
+        <% } else { %>
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+        <% } %>
+    </div>
+
+    <script>
+        const liffId = '<%= liffId %>';
+        const activity = <%- JSON.stringify(activity || {}) %>;
+        
+        // Initialize LIFF
+        liff.init({ liffId })
+            .then(() => {
+                console.log('LIFF initialized');
+            })
+            .catch(err => {
+                console.error('LIFF init error:', err);
+            });
+        
+        function openMap() {
+            if (activity.latitude && activity.longitude) {
+                const url = `https://www.google.com/maps/search/?api=1&query=${activity.latitude},${activity.longitude}`;
+                liff.openWindow({ url, external: true });
+            }
+        }
+        
+        function saveActivity() {
+            if (liff.isLoggedIn()) {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: `收藏活動：${activity.name}`
+                }]).then(() => {
+                    liff.closeWindow();
+                });
+            } else {
+                liff.login();
+            }
+        }
+        
+        function addToSchedule() {
+            if (liff.isLoggedIn()) {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: `加入行程：${activity.name}`
+                }]).then(() => {
+                    liff.closeWindow();
+                });
+            } else {
+                liff.login();
+            }
+        }
+        
+        function formatDuration(minutes) {
+            if (!minutes) return '約 1-2 小時';
+            if (minutes < 60) return `約 ${minutes} 分鐘`;
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            if (mins === 0) return `約 ${hours} 小時`;
+            return `約 ${hours} 小時 ${mins} 分`;
+        }
+        
+        function formatCost(min, max) {
+            if (!min && !max) return '免費';
+            if (min === 0 && !max) return '免費';
+            if (min === max) return `$${min}`;
+            if (!max) return `$${min} 起`;
+            return `$${min}-${max}`;
+        }
+        
+        function getDifficultyText(level) {
+            const texts = { easy: '輕鬆', moderate: '適中', challenging: '挑戰' };
+            return texts[level] || '輕鬆';
+        }
+    </script>
+</body>
+</html>

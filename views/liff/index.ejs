@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        :root {
+            --primary: #E74C3C;
+            --secondary: #3498DB;
+            --success: #27AE60;
+            --warning: #F39C12;
+            --danger: #E74C3C;
+            --dark: #2C3E50;
+            --light: #ECF0F1;
+            --white: #FFFFFF;
+            --gray: #95A5A6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            font-size: 16px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 適老化設計 - 大字體 */
+        .large-text body {
+            font-size: 18px;
+        }
+        .extra-large-text body {
+            font-size: 20px;
+        }
+
+        /* 載入畫面 */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--light);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 15px;
+            color: var(--gray);
+        }
+
+        /* 容器 */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+            min-height: 100vh;
+        }
+
+        /* 頭部 */
+        .header {
+            background: var(--primary);
+            color: var(--white);
+            padding: 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.3em;
+            font-weight: 500;
+        }
+
+        .header-back {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--white);
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--white);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        /* 按鈕 */
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 500;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+            min-height: 50px; /* 適老化 - 大觸控區 */
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* 列表 */
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: var(--white);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .list-item:active {
+            transform: scale(0.98);
+        }
+
+        .list-item-icon {
+            font-size: 2em;
+            margin-right: 15px;
+        }
+
+        .list-item-content {
+            flex: 1;
+        }
+
+        .list-item-title {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .list-item-subtitle {
+            font-size: 0.85em;
+            color: var(--gray);
+        }
+
+        .list-item-arrow {
+            color: var(--gray);
+            font-size: 1.2em;
+        }
+
+        /* 表單 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid var(--light);
+            border-radius: 12px;
+            font-size: 1em;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* 標籤選擇 */
+        .tag-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tag {
+            padding: 12px 20px;
+            background: var(--light);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .tag.selected {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .tag:active {
+            transform: scale(0.95);
+        }
+
+        /* 底部導航 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            display: flex;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px 5px;
+            cursor: pointer;
+            color: var(--gray);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item-icon {
+            font-size: 1.5em;
+            margin-bottom: 3px;
+        }
+
+        .nav-item-text {
+            font-size: 0.75em;
+        }
+
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-title {
+            font-size: 1.2em;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .empty-state-text {
+            color: var(--gray);
+            margin-bottom: 20px;
+        }
+
+        /* 用戶資訊 */
+        .user-info {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            background: var(--white);
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .user-status {
+            font-size: 0.85em;
+            color: var(--gray);
+        }
+
+        /* 提示訊息 */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* 間距工具類 */
+        .mt-10 { margin-top: 10px; }
+        .mt-20 { margin-top: 20px; }
+        .mb-10 { margin-bottom: 10px; }
+        .mb-20 { margin-bottom: 20px; }
+        .p-20 { padding: 20px; }
+        .text-center { text-align: center; }
+        .text-gray { color: var(--gray); }
+    </style>
+</head>
+<body>
+    <!-- 載入畫面 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">載入中...</p>
+    </div>
+
+    <!-- 主要內容 -->
+    <div class="container" id="mainContent" style="display: none;">
+        <div class="card">
+            <h2 class="card-title">🌅 退休福音</h2>
+            <p class="text-gray">歡迎使用退休福音！</p>
+            
+            <div class="user-info mt-20" id="userInfo" style="display: none;">
+                <img class="user-avatar" id="userAvatar" src="" alt="頭像">
+                <div>
+                    <div class="user-name" id="userName">用戶</div>
+                    <div class="user-status" id="userStatus">一般會員</div>
+                </div>
+            </div>
+
+            <div class="mt-20">
+                <button class="btn btn-primary btn-block" id="closeBtn">返回聊天</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // LIFF 初始化
+        const LIFF_ID = '<%= liffId %>';
+        let liffInitialized = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                liffInitialized = true;
+                
+                // 檢查登入狀態
+                if (liff.isLoggedIn()) {
+                    await loadUserProfile();
+                }
+
+                // 隱藏載入畫面
+                hideLoading();
+
+            } catch (error) {
+                console.error('LIFF init error:', error);
+                showToast('初始化失敗');
+                hideLoading();
+            }
+        });
+
+        // 載入用戶資料
+        async function loadUserProfile() {
+            try {
+                const profile = await liff.getProfile();
+                
+                document.getElementById('userInfo').style.display = 'flex';
+                document.getElementById('userAvatar').src = profile.pictureUrl || '';
+                document.getElementById('userName').textContent = profile.displayName;
+                
+            } catch (error) {
+                console.error('Get profile error:', error);
+            }
+        }
+
+        // 隱藏載入畫面
+        function hideLoading() {
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').style.display = 'block';
+        }
+
+        // 顯示提示訊息
+        function showToast(message, duration = 2000) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // 關閉 LIFF
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            if (liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.close();
+            }
+        });
+
+        // 發送訊息到聊天室
+        function sendMessage(message) {
+            if (liff.isInClient()) {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: message
+                }]).then(() => {
+                    liff.closeWindow();
+                }).catch(err => {
+                    showToast('發送失敗');
+                });
+            }
+        }
+
+        // API 請求
+        async function apiRequest(endpoint, options = {}) {
+            const token = await getAccessToken();
+            const response = await fetch(`/api${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    ...options.headers
+                }
+            });
+            return response.json();
+        }
+
+        // 取得 Access Token
+        async function getAccessToken() {
+            if (liff.isLoggedIn()) {
+                return liff.getIDToken();
+            }
+            return null;
+        }
+    </script>
+</body>
+</html>

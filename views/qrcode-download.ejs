@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #E74C3C;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .qr-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        .qr-card h3 {
+            color: #2C3E50;
+            margin-bottom: 15px;
+        }
+
+        .qr-card img {
+            max-width: 200px;
+            margin: 15px 0;
+            border-radius: 10px;
+        }
+
+        .qr-card p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: #E74C3C;
+            color: white;
+            text-decoration: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: transform 0.3s, background 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #C0392B;
+            transform: scale(1.05);
+        }
+
+        .download-btn.secondary {
+            background: #3498DB;
+        }
+
+        .download-btn.secondary:hover {
+            background: #2980B9;
+        }
+
+        .download-btn.green {
+            background: #27AE60;
+        }
+
+        .download-btn.green:hover {
+            background: #219A52;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .poster-preview {
+            max-width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .instructions {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .instructions h3 {
+            color: #E74C3C;
+            margin-bottom: 15px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 30px;
+            color: #E74C3C;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌅 退休福音</h1>
+        <p class="subtitle">下載 QR Code 宣傳素材</p>
+
+        <div class="qr-grid">
+            <!-- 基本 QR Code -->
+            <div class="qr-card">
+                <h3>📱 基本 QR Code</h3>
+                <img src="<%= baseUrl %>/qrcode?size=200" alt="QR Code">
+                <p>簡潔版本，適合各種用途</p>
+                <div class="btn-group">
+                    <a href="<%= baseUrl %>/qrcode?size=300" download="retirement-gospel-qr.png" class="download-btn">
+                        下載 PNG
+                    </a>
+                    <a href="<%= baseUrl %>/qrcode/svg" download="retirement-gospel-qr.svg" class="download-btn secondary">
+                        下載 SVG
+                    </a>
+                </div>
+            </div>
+
+            <!-- Logo QR Code -->
+            <div class="qr-card">
+                <h3>🎨 Logo QR Code</h3>
+                <img src="<%= baseUrl %>/qrcode/logo?size=200" alt="Logo QR Code">
+                <p>帶有品牌 Logo，更具識別度</p>
+                <div class="btn-group">
+                    <a href="<%= baseUrl %>/qrcode/logo?size=400" download="retirement-gospel-qr-logo.png" class="download-btn">
+                        下載 PNG
+                    </a>
+                </div>
+            </div>
+
+            <!-- 海報版 -->
+            <div class="qr-card" style="grid-column: span 2;">
+                <h3>🖼️ 宣傳海報</h3>
+                <img src="<%= baseUrl %>/qrcode/poster?width=400&height=533" alt="海報" class="poster-preview">
+                <p>精美海報設計，可直接列印張貼</p>
+                <div class="btn-group">
+                    <a href="<%= baseUrl %>/qrcode/poster?width=600&height=800" download="retirement-gospel-poster-sm.png" class="download-btn">
+                        小型 (600x800)
+                    </a>
+                    <a href="<%= baseUrl %>/qrcode/poster?width=900&height=1200" download="retirement-gospel-poster-md.png" class="download-btn secondary">
+                        中型 (900x1200)
+                    </a>
+                    <a href="<%= baseUrl %>/qrcode/poster?width=1200&height=1600" download="retirement-gospel-poster-lg.png" class="download-btn green">
+                        大型 (1200x1600)
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 使用說明</h3>
+            <ol>
+                <li>選擇適合的 QR Code 格式下載</li>
+                <li>海報可直接列印，建議用相片紙輸出效果更佳</li>
+                <li>張貼於社區活動中心、里辦公室、診所、藥局等長者常出入場所</li>
+                <li>分享到 LINE 群組或社群媒體，邀請更多朋友加入</li>
+                <li>如需客製化設計，歡迎聯繫我們</li>
+            </ol>
+        </div>
+
+        <a href="/" class="back-link">← 返回首頁</a>
+    </div>
+</body>
+</html>

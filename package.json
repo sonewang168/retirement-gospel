@@ -1,0 +1,61 @@
+{
+  "name": "retirement-gospel",
+  "version": "1.0.0",
+  "description": "退休福音 - 智慧生活規劃助手 LINE Bot",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest --coverage",
+    "lint": "eslint src/",
+    "db:init": "node scripts/initDatabase.js",
+    "db:seed": "node scripts/seedData.js",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "keywords": [
+    "linebot",
+    "retirement",
+    "lifestyle",
+    "recommendation",
+    "taiwan"
+  ],
+  "author": "Retirement Gospel Team",
+  "license": "MIT",
+  "dependencies": {
+    "@line/bot-sdk": "^8.0.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "node-cron": "^3.0.3",
+    "sequelize": "^6.35.2",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "redis": "^4.6.11",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.1",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43",
+    "node-fetch": "^2.7.0",
+    "qrcode": "^1.5.3",
+    "sharp": "^0.33.1",
+    "ejs": "^3.1.9",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "winston": "^3.11.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.55.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

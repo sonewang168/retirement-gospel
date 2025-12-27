@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #F5F5F5;
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3498DB, #2980B9);
+            color: white;
+            padding: 25px 20px;
+        }
+        
+        .header-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .date-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .spots-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .spots-badge.full {
+            background: #E74C3C;
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header-desc {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .info-card h3 {
+            font-size: 16px;
+            color: #2C3E50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #ECF0F1;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            width: 90px;
+            color: #7F8C8D;
+            font-size: 14px;
+        }
+        
+        .info-value {
+            flex: 1;
+            font-size: 14px;
+            color: #2C3E50;
+        }
+        
+        .organizer {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+        }
+        
+        .organizer-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #ECF0F1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .organizer-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .organizer-info {
+            flex: 1;
+        }
+        
+        .organizer-label {
+            font-size: 12px;
+            color: #7F8C8D;
+        }
+        
+        .organizer-name {
+            font-size: 16px;
+            font-weight: 500;
+            color: #2C3E50;
+        }
+        
+        .participants-preview {
+            display: flex;
+            gap: -10px;
+            margin-top: 10px;
+        }
+        
+        .participant-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #ECF0F1;
+            border: 2px solid white;
+            margin-left: -10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .participant-avatar:first-child {
+            margin-left: 0;
+        }
+        
+        .participant-more {
+            background: #3498DB;
+            color: white;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #ECF0F1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498DB, #2980B9);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        
+        .progress-text {
+            font-size: 14px;
+            color: #7F8C8D;
+            text-align: center;
+        }
+        
+        .qr-section {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .qr-section img {
+            width: 150px;
+            height: 150px;
+            border-radius: 12px;
+        }
+        
+        .qr-section p {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #7F8C8D;
+        }
+        
+        .footer-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            box-shadow: 0 -2px 20px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #3498DB;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #ECF0F1;
+            color: #2C3E50;
+        }
+        
+        .btn-danger {
+            background: #E74C3C;
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <% if (group) { %>
+    <div class="header">
+        <div class="header-meta">
+            <span class="date-badge">
+                <%= new Date(group.eventDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' }) %>
+                <%= group.eventTime ? group.eventTime.substring(0, 5) : '' %>
+            </span>
+            <% const spotsLeft = group.maxParticipants - group.currentParticipants; %>
+            <span class="spots-badge <%= spotsLeft <= 0 ? 'full' : '' %>">
+                <%= spotsLeft > 0 ? `剩 ${spotsLeft} 位` : '已額滿' %>
+            </span>
+        </div>
+        <h1 class="header-title"><%= group.title %></h1>
+        <% if (group.description) { %>
+        <p class="header-desc"><%= group.description %></p>
+        <% } %>
+    </div>
+    
+    <div class="content">
+        <!-- Organizer -->
+        <div class="info-card">
+            <h3>👤 發起人</h3>
+            <div class="organizer">
+                <div class="organizer-avatar">
+                    <% if (group.creator && group.creator.pictureUrl) { %>
+                    <img src="<%= group.creator.pictureUrl %>" alt="">
+                    <% } else { %>
+                    👤
+                    <% } %>
+                </div>
+                <div class="organizer-info">
+                    <div class="organizer-label">發起人</div>
+                    <div class="organizer-name"><%= group.creator ? group.creator.displayName : '匿名' %></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info -->
+        <div class="info-card">
+            <h3>📋 揪團資訊</h3>
+            <div class="info-row">
+                <span class="info-label">集合地點</span>
+                <span class="info-value"><%= group.meetingPoint || '待定' %></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">費用</span>
+                <span class="info-value"><%= group.costPerPerson === 0 ? '免費' : `$${group.costPerPerson}/人` %></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">分攤方式</span>
+                <span class="info-value">
+                    <% const costTexts = { equal: '均分', pay_own: '各付各的', organizer_pays: '發起人請客', custom: '自訂' }; %>
+                    <%= costTexts[group.costSplitMethod] || '各付各的' %>
+                </span>
+            </div>
+            <% if (group.requirements) { %>
+            <div class="info-row">
+                <span class="info-label">參加條件</span>
+                <span class="info-value"><%= group.requirements %></span>
+            </div>
+            <% } %>
+        </div>
+        
+        <!-- Participants -->
+        <div class="info-card">
+            <h3>👥 參加者</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: <%= (group.currentParticipants / group.maxParticipants) * 100 %>%"></div>
+            </div>
+            <p class="progress-text"><%= group.currentParticipants %> / <%= group.maxParticipants %> 人</p>
+            
+            <div class="participants-preview">
+                <div class="participant-avatar">👤</div>
+                <div class="participant-avatar">👤</div>
+                <div class="participant-avatar">👤</div>
+                <% if (group.currentParticipants > 3) { %>
+                <div class="participant-avatar participant-more">+<%= group.currentParticipants - 3 %></div>
+                <% } %>
+            </div>
+        </div>
+        
+        <!-- QR Code Share -->
+        <div class="info-card">
+            <h3>📱 分享揪團</h3>
+            <div class="qr-section">
+                <img src="/qrcode/group/<%= group.id %>" alt="分享 QR Code">
+                <p>讓朋友掃描加入揪團</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer Actions -->
+    <div class="footer-actions">
+        <button class="btn btn-secondary" onclick="shareGroup()">
+            📤 分享
+        </button>
+        <% if (spotsLeft > 0) { %>
+        <button class="btn btn-primary" onclick="joinGroup()">
+            ✓ 我要參加
+        </button>
+        <% } else { %>
+        <button class="btn btn-primary" onclick="joinWaitlist()">
+            📋 候補報名
+        </button>
+        <% } %>
+    </div>
+    <% } else { %>
+    <div style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+        <p>找不到此揪團</p>
+    </div>
+    <% } %>
+
+    <script>
+        const liffId = '<%= liffId %>';
+        const group = <%- JSON.stringify(group || null) %>;
+        
+        liff.init({ liffId })
+            .then(() => console.log('LIFF initialized'))
+            .catch(err => console.error('LIFF init error:', err));
+        
+        function joinGroup() {
+            if (liff.isLoggedIn()) {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: `我要參加揪團：${group.title}`
+                }]).then(() => liff.closeWindow());
+            } else {
+                liff.login();
+            }
+        }
+        
+        function joinWaitlist() {
+            if (liff.isLoggedIn()) {
+                liff.sendMessages([{
+                    type: 'text',
+                    text: `候補報名揪團：${group.title}`
+                }]).then(() => liff.closeWindow());
+            } else {
+                liff.login();
+            }
+        }
+        
+        function shareGroup() {
+            if (liff.isApiAvailable('shareTargetPicker')) {
+                liff.shareTargetPicker([{
+                    type: 'text',
+                    text: `來一起參加「${group.title}」揪團吧！\n\n${window.location.href}`
+                }]);
+            }
+        }
+    </script>
+</body>
+</html>

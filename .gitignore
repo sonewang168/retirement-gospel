@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.npm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build
+dist/
+build/
+
+# Test
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploads (if using local storage)
+uploads/
+!uploads/.gitkeep
+
+# Database
+*.sqlite
+*.sqlite3
+
+# OS
+Thumbs.db

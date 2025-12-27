@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .error-container {
+            text-align: center;
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .error-code {
+            font-size: 100px;
+            font-weight: 700;
+            color: #E74C3C;
+            line-height: 1;
+            margin-bottom: 20px;
+        }
+
+        .error-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #2C3E50;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        p {
+            color: #7F8C8D;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #E74C3C;
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 500;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <% if (typeof code !== 'undefined' && code) { %>
+            <div class="error-code"><%= code %></div>
+        <% } else { %>
+            <div class="error-icon">😢</div>
+        <% } %>
+        <h1><%= message || '發生錯誤' %></h1>
+        <p>抱歉造成不便，請稍後再試</p>
+        <a href="/" class="btn">返回首頁</a>
+    </div>
+</body>
+</html>
