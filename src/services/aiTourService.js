@@ -156,31 +156,45 @@ async function generateWithGemini(prompt) {
     try {
         logger.info('Calling Gemini API...');
 
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                contents: [{
-                    parts: [{ text: prompt }]
-                }]
-            },
-            {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 30000
+        // 使用 gemini-pro 模型
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+        
+        const response = await axios.post(url, {
+            contents: [{
+                role: 'user',
+                parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2000,
+                topP: 0.8,
+                topK: 40
             }
-        );
+        }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+        });
+
+        logger.info('Gemini response status:', response.status);
 
         const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-        logger.info('Gemini raw response:', content?.substring(0, 200));
         
         if (content) {
+            logger.info('Gemini raw response:', content.substring(0, 200));
             return safeParseJSON(content, 'Gemini');
+        } else {
+            logger.error('Gemini no content in response:', JSON.stringify(response.data));
         }
     } catch (error) {
-        logger.error('Gemini API error:', error.response?.data?.error?.message || error.message);
+        if (error.response) {
+            logger.error('Gemini API error status:', error.response.status);
+            logger.error('Gemini API error data:', JSON.stringify(error.response.data));
+        } else {
+            logger.error('Gemini API error:', error.message);
+        }
     }
     return null;
 }
-
 /**
  * 建立預設行程
  */
