@@ -146,32 +146,44 @@ async function handleKeywordMessage(text, user, client, event) {
             replyToken: event.replyToken,
             messages: [{
                 type: 'text',
-                text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒\n（OpenAI + Gemini 雙引擎生成中）'
+                text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒'
             }]
         });
 
         // 用 push 發送結果
         try {
             const tours = await aiTourService.generateTourWithDualAI(text);
-            const flexMessage = flexMessageBuilder.buildAITourResults(tours, text);
             
-            await client.pushMessage({
-                to: user.lineUserId,
-                messages: [flexMessage]
-            });
+            // 先用簡單文字格式測試
+            const tour = tours[0];
+            const itineraryText = (tour.itinerary || []).map(d => 
+                `📅 Day${d.day} ${d.title}\n   ${(d.activities || []).join('、')}`
+            ).join('\n\n');
+            
+            const message = {
+                type: 'text',
+                text: `🌍 ${tour.name}\n\n` +
+                      `📍 國家：${tour.country}\n` +
+                      `📆 天數：${tour.days} 天\n` +
+                      `💰 預算：$${tour.estimatedCost?.min || 30000} - $${tour.estimatedCost?.max || 50000}\n` +
+                      `🏷️ 來源：${tour.source}\n\n` +
+                      `✨ 亮點：${(tour.highlights || []).slice(0, 5).join('、')}\n\n` +
+                      `📋 行程安排：\n${itineraryText}\n\n` +
+                      `💡 小提醒：\n${(tour.tips || []).map(t => `• ${t}`).join('\n')}\n\n` +
+                      `🗓️ 最佳季節：${tour.bestSeason || '全年皆宜'}`
+            };
+            
+            await client.pushMessage(user.lineUserId, message);
+            
         } catch (err) {
             logger.error('AI Tour generation error:', err);
-            await client.pushMessage({
-                to: user.lineUserId,
-                messages: [{
-                    type: 'text',
-                    text: '抱歉，行程生成失敗，請稍後再試 🙏'
-                }]
+            await client.pushMessage(user.lineUserId, {
+                type: 'text',
+                text: '抱歉，行程生成失敗，請稍後再試 🙏'
             });
         }
         return null;
     }
-
     // ============================================
     // 今日推薦相關
     // ============================================
