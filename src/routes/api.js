@@ -58,26 +58,35 @@ const validate = (req, res, next) => {
  * 新增種子資料
  * GET /api/seed
  */
+/**
+ * 新增種子資料（大量活動）
+ * GET /api/seed?force=true 可強制重新匯入
+ */
 router.get('/seed', async (req, res) => {
     try {
+        const force = req.query.force === 'true';
+        
         const count = await Activity.count();
-        if (count > 0) {
-            return res.json({ success: true, message: `資料庫已有 ${count} 筆活動資料，略過新增` });
+        if (count > 0 && !force) {
+            return res.json({ 
+                success: true, 
+                message: `資料庫已有 ${count} 筆活動資料。如需重新匯入請加 ?force=true` 
+            });
         }
 
-        const data = [
-            { name: '蓮池潭風景區', description: '左營區著名景點，有龍虎塔、春秋閣等著名建築，環湖步道平坦好走。', shortDescription: '環湖步道賞景，龍虎塔拍照', category: 'nature', city: '高雄市', district: '左營區', address: '高雄市左營區蓮潭路', difficultyLevel: 'easy', estimatedDuration: 120, costMin: 0, costMax: 0, isIndoor: false, isAccessible: true, tags: ['免費', '散步', '拍照'], rating: 4.5, isFeatured: true, isActive: true },
-            { name: '駁二藝術特區', description: '港邊文創園區，有展覽、表演、市集，週末常有活動。', shortDescription: '文創園區逛街看展', category: 'culture', city: '高雄市', district: '鹽埕區', address: '高雄市鹽埕區大勇路1號', difficultyLevel: 'easy', estimatedDuration: 150, costMin: 0, costMax: 300, isIndoor: false, isAccessible: true, tags: ['文創', '展覽', '拍照'], rating: 4.5, isFeatured: true, isActive: true },
-            { name: '六合夜市', description: '高雄最知名的觀光夜市，各種在地小吃美食。', shortDescription: '品嚐在地小吃美食', category: 'food', city: '高雄市', district: '新興區', address: '高雄市新興區六合二路', difficultyLevel: 'easy', estimatedDuration: 90, costMin: 100, costMax: 500, isIndoor: false, isAccessible: true, tags: ['夜市', '小吃', '美食'], rating: 4.1, isFeatured: true, isActive: true },
-            { name: '高雄市立美術館', description: '大型美術館，定期舉辦藝術展覽，戶外有雕塑公園。', shortDescription: '欣賞藝術展覽', category: 'culture', city: '高雄市', district: '鼓山區', address: '高雄市鼓山區美術館路80號', difficultyLevel: 'easy', estimatedDuration: 120, costMin: 0, costMax: 200, isIndoor: true, isAccessible: true, tags: ['美術', '展覽', '室內'], rating: 4.4, isFeatured: true, isActive: true },
-            { name: '旗津海岸公園', description: '旗津島上的海濱公園，有沙灘、自行車道，可搭渡輪前往。', shortDescription: '海濱漫步，騎自行車', category: 'nature', city: '高雄市', district: '旗津區', address: '高雄市旗津區旗津三路', difficultyLevel: 'easy', estimatedDuration: 150, costMin: 0, costMax: 100, isIndoor: false, isAccessible: true, tags: ['海邊', '自行車', '渡輪'], rating: 4.4, isFeatured: true, isActive: true },
-            { name: '壽山國家自然公園', description: '高雄市區內的自然綠洲，可觀察獼猴生態，山頂可眺望港都美景。', shortDescription: '登山健行，獼猴生態', category: 'nature', city: '高雄市', district: '鼓山區', address: '高雄市鼓山區壽山', difficultyLevel: 'moderate', estimatedDuration: 180, costMin: 0, costMax: 0, isIndoor: false, isAccessible: false, tags: ['登山', '健行', '獼猴'], rating: 4.3, isFeatured: true, isActive: true },
-            { name: '三鳳宮', description: '主祀中壇元帥的大廟，建築雄偉壯觀，是高雄重要宗教聖地。', shortDescription: '參拜祈福', category: 'religion', city: '高雄市', district: '三民區', address: '高雄市三民區河北二路134號', difficultyLevel: 'easy', estimatedDuration: 60, costMin: 0, costMax: 0, isIndoor: false, isAccessible: true, tags: ['廟宇', '祈福', '免費'], rating: 4.6, isFeatured: true, isActive: true },
-            { name: '國立科學工藝博物館', description: '大型科學博物館，有許多互動展品，適合全家同遊。', shortDescription: '互動科學展覽', category: 'learning', city: '高雄市', district: '三民區', address: '高雄市三民區九如一路720號', difficultyLevel: 'easy', estimatedDuration: 180, costMin: 0, costMax: 100, isIndoor: true, isAccessible: true, tags: ['博物館', '科學', '室內'], rating: 4.3, isFeatured: true, isActive: true }
-        ];
+        // 如果強制重新匯入，先清空
+        if (force) {
+            await Activity.destroy({ where: {} });
+        }
 
-        const result = await Activity.bulkCreate(data);
-        res.json({ success: true, message: `成功新增 ${result.length} 筆活動資料` });
+        // 載入種子資料
+        const { allActivities } = require('../data/seedActivities');
+        const result = await Activity.bulkCreate(allActivities);
+        
+        res.json({ 
+            success: true, 
+            message: `成功新增 ${result.length} 筆活動資料（高雄+全台+海外）` 
+        });
     } catch (error) {
         logger.error('Seed error:', error);
         res.status(500).json({ error: error.message });
