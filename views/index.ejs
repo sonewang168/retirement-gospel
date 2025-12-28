@@ -11,230 +11,363 @@
             font-family: 'Noto Sans TC', sans-serif;
             background: linear-gradient(135deg, #E74C3C 0%, #C0392B 50%, #E74C3C 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             padding: 20px;
         }
-        .container { text-align: center; max-width: 600px; width: 100%; }
-        .logo { font-size: 80px; margin: 20px 0; animation: float 3s ease-in-out infinite; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { font-size: 80px; animation: float 3s ease-in-out infinite; }
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
-        h1 { color: white; font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-        .tagline { color: rgba(255,255,255,0.9); font-size: 1.2em; margin-bottom: 30px; }
-        
-        .qr-section {
+        h1 { color: white; font-size: 2.5em; margin: 10px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .tagline { color: rgba(255,255,255,0.9); font-size: 1.2em; }
+
+        .card {
             background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
-        .qr-title { color: #2C3E50; font-size: 1.3em; margin-bottom: 20px; }
-        .qr-code { margin: 20px 0; }
-        .qr-code img { width: 200px; height: 200px; border-radius: 10px; }
+        .card h2 { color: #E74C3C; margin-bottom: 20px; font-size: 1.4em; }
         
-        .line-btn {
+        .qr-section { text-align: center; }
+        .qr-code img { width: 200px; height: 200px; border-radius: 10px; margin: 15px 0; }
+        
+        .btn {
             display: inline-block;
-            background: #00B900;
-            color: white;
-            text-decoration: none;
-            padding: 15px 40px;
+            padding: 15px 35px;
             border-radius: 50px;
             font-size: 1.1em;
             font-weight: 500;
-            transition: transform 0.3s, box-shadow 0.3s;
-            margin: 10px;
-        }
-        .line-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(0, 185, 0, 0.4);
-        }
-        
-        .stats-btn {
-            display: inline-block;
-            background: #3498DB;
-            color: white;
             text-decoration: none;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-size: 1em;
-            font-weight: 500;
+            margin: 8px;
             transition: transform 0.3s, box-shadow 0.3s;
-            margin: 10px;
         }
-        .stats-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(52, 152, 219, 0.4);
-        }
+        .btn:hover { transform: scale(1.05); }
+        .btn-line { background: #00B900; color: white; }
+        .btn-line:hover { box-shadow: 0 5px 20px rgba(0, 185, 0, 0.4); }
+        .btn-blue { background: #3498DB; color: white; }
+        .btn-blue:hover { box-shadow: 0 5px 20px rgba(52, 152, 219, 0.4); }
 
-        .features {
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            text-align: center;
+        }
+        .stat-number { font-size: 2.5em; font-weight: bold; color: #E74C3C; }
+        .stat-label { color: #666; margin-top: 5px; }
+
+        /* 可點擊展開的功能卡片 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 15px;
-            margin: 30px 0;
         }
-        .feature {
-            background: rgba(255,255,255,0.15);
-            padding: 20px 10px;
-            border-radius: 15px;
-            color: white;
-            cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
-        }
-        .feature:hover {
-            transform: translateY(-5px);
-            background: rgba(255,255,255,0.25);
-        }
-        .feature-icon { font-size: 2em; margin-bottom: 10px; }
-        .feature-text { font-size: 0.9em; }
-
-        .info-section {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 25px;
-            margin: 20px 0;
-            color: white;
-            text-align: left;
-        }
-        .info-section h3 { margin-bottom: 15px; font-size: 1.2em; }
-        .info-section ul { list-style: none; }
-        .info-section li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .info-section li:last-child { border-bottom: none; }
-        .info-section li::before { content: "✓ "; color: #2ECC71; font-weight: bold; }
-
-        .footer {
-            margin-top: 30px;
-            color: rgba(255,255,255,0.7);
-            font-size: 0.9em;
-        }
-        .footer a {
-            color: rgba(255,255,255,0.9);
-            text-decoration: none;
-            margin: 0 10px;
-        }
-        .footer a:hover { text-decoration: underline; }
-
-        .stats-box {
-            background: rgba(255,255,255,0.95);
+        .feature-item {
+            background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
             border-radius: 15px;
             padding: 20px;
-            margin: 20px 0;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
         }
-        .stat-item { text-align: center; }
-        .stat-number { font-size: 2em; font-weight: bold; color: #E74C3C; }
-        .stat-label { font-size: 0.85em; color: #666; }
+        .feature-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: #E74C3C;
+        }
+        .feature-item.active {
+            border-color: #E74C3C;
+            background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+        }
+        .feature-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .feature-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .feature-icon { font-size: 1.8em; }
+        .feature-name { font-weight: bold; color: #2C3E50; font-size: 1.1em; }
+        .feature-arrow {
+            font-size: 1.2em;
+            color: #999;
+            transition: transform 0.3s;
+        }
+        .feature-item.active .feature-arrow {
+            transform: rotate(180deg);
+            color: #E74C3C;
+        }
+        .feature-desc {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s ease;
+            color: #666;
+            line-height: 1.6;
+        }
+        .feature-item.active .feature-desc {
+            max-height: 200px;
+            padding-top: 15px;
+            margin-top: 15px;
+            border-top: 1px dashed #ddd;
+        }
+        .feature-tip {
+            display: inline-block;
+            background: #E74C3C;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
 
-        @media (max-width: 480px) {
+        /* 指令列表 */
+        .commands-list { list-style: none; }
+        .commands-list li {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .commands-list li:hover { background: #f8f9fa; }
+        .commands-list li:last-child { border-bottom: none; }
+        .cmd { 
+            background: #E74C3C; 
+            color: white; 
+            padding: 6px 15px; 
+            border-radius: 20px; 
+            font-size: 0.9em;
+            margin-right: 15px;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .cmd-desc { color: #555; }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            color: rgba(255,255,255,0.9);
+        }
+        .footer-links { margin-bottom: 15px; }
+        .footer a { 
+            color: white; 
+            text-decoration: none; 
+            margin: 0 12px;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 20px;
+            transition: background 0.2s;
+        }
+        .footer a:hover { background: rgba(255,255,255,0.3); }
+
+        @media (max-width: 600px) {
             h1 { font-size: 2em; }
-            .tagline { font-size: 1em; }
-            .features { grid-template-columns: repeat(2, 1fr); }
-            .stats-box { grid-template-columns: repeat(3, 1fr); }
-            .stat-number { font-size: 1.5em; }
+            .features-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .stat-number { font-size: 1.8em; }
+            .btn { display: block; margin: 10px auto; max-width: 250px; }
+            .footer a { display: block; margin: 8px auto; max-width: 200px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">🌅</div>
-        <h1>退休福音</h1>
-        <p class="tagline">智慧生活規劃助手</p>
+        <!-- 標題 -->
+        <div class="header">
+            <div class="logo">🌅</div>
+            <h1>退休福音</h1>
+            <p class="tagline">智慧生活規劃助手</p>
+        </div>
 
-        <div class="stats-box">
-            <div class="stat-item">
-                <div class="stat-number" id="activityCount">60+</div>
-                <div class="stat-label">精選活動</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">5</div>
-                <div class="stat-label">城市覆蓋</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">24/7</div>
-                <div class="stat-label">智慧推薦</div>
+        <!-- 統計數據 -->
+        <div class="card">
+            <div class="stats-grid">
+                <div>
+                    <div class="stat-number" id="activityCount">60+</div>
+                    <div class="stat-label">精選活動</div>
+                </div>
+                <div>
+                    <div class="stat-number">5+</div>
+                    <div class="stat-label">城市覆蓋</div>
+                </div>
+                <div>
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">智慧服務</div>
+                </div>
             </div>
         </div>
 
-        <div class="qr-section">
-            <p class="qr-title">📱 掃描 QR Code 加入好友</p>
+        <!-- QR Code -->
+        <div class="card qr-section">
+            <h2>📱 立即加入 LINE 好友</h2>
             <div class="qr-code">
                 <img src="https://qr-official.line.me/sid/M/024wclps.png" alt="LINE QR Code">
             </div>
-            <a href="https://line.me/R/ti/p/@024wclps" class="line-btn" target="_blank">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" style="vertical-align: middle; margin-right: 8px;">
-                    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
-                </svg>
-                加入好友
+            <p style="color: #666; margin-bottom: 15px;">掃描 QR Code 或點擊下方按鈕</p>
+            <a href="https://line.me/R/ti/p/@024wclps" class="btn btn-line" target="_blank">
+                ➕ 加入好友
             </a>
-            <br>
-            <a href="/admin/stats" class="stats-btn">📊 查看統計數據</a>
+            <a href="/admin/stats" class="btn btn-blue">
+                📊 查看統計
+            </a>
         </div>
 
-        <div class="features">
-            <div class="feature" onclick="alert('💡 每天根據天氣、空氣品質和您的偏好，智慧推薦最適合的活動！')">
-                <div class="feature-icon">✨</div>
-                <div class="feature-text">每日推薦</div>
-            </div>
-            <div class="feature" onclick="alert('🗺️ 點擊活動卡片的導航按鈕，直接開啟 Google Maps 帶你去！')">
-                <div class="feature-icon">🗺️</div>
-                <div class="feature-text">一鍵導航</div>
-            </div>
-            <div class="feature" onclick="alert('👥 找到志同道合的夥伴，一起出遊更有趣！')">
-                <div class="feature-icon">👥</div>
-                <div class="feature-text">揪團出遊</div>
-            </div>
-            <div class="feature" onclick="alert('🌤️ 即時天氣和空氣品質資訊，幫你判斷是否適合出門！')">
-                <div class="feature-icon">🌤️</div>
-                <div class="feature-text">天氣提醒</div>
-            </div>
-            <div class="feature" onclick="alert('❤️ 收藏喜歡的活動，隨時查看！')">
-                <div class="feature-icon">❤️</div>
-                <div class="feature-text">收藏功能</div>
-            </div>
-            <div class="feature" onclick="alert('🌏 不只台灣，還有日本、韓國、東南亞的旅遊推薦！')">
-                <div class="feature-icon">🌏</div>
-                <div class="feature-text">海外旅遊</div>
+        <!-- 功能介紹 - 點擊展開 -->
+        <div class="card">
+            <h2>🎯 主要功能（點擊查看詳情）</h2>
+            <div class="features-grid">
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">✨</span>
+                            <span class="feature-name">智慧推薦</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        根據天氣、空氣品質和您的個人偏好，每天為您推薦最適合的活動。下雨天推薦室內活動，空氣好時推薦戶外踏青！
+                        <div class="feature-tip">💡 傳送「今日推薦」試試看</div>
+                    </div>
+                </div>
+
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">🗺️</span>
+                            <span class="feature-name">一鍵導航</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        每個推薦活動都有「導航」按鈕，點擊後直接開啟 Google Maps，幫你規劃最佳路線，再也不怕迷路！
+                        <div class="feature-tip">💡 點擊活動卡片的「🗺️ 導航」</div>
+                    </div>
+                </div>
+
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">👥</span>
+                            <span class="feature-name">揪團出遊</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        獨樂樂不如眾樂樂！找到志同道合的夥伴，建立或加入揪團，一起探索新景點，認識新朋友！
+                        <div class="feature-tip">💡 傳送「揪團」開始</div>
+                    </div>
+                </div>
+
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">🌤️</span>
+                            <span class="feature-name">天氣整合</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        即時顯示天氣狀況和空氣品質指數 (AQI)，幫助您判斷今天是否適合出門，讓每次出遊都舒適愉快！
+                        <div class="feature-tip">💡 傳送「天氣」查看</div>
+                    </div>
+                </div>
+
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">❤️</span>
+                            <span class="feature-name">收藏功能</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        看到喜歡的活動？點擊「收藏」保存起來，之後隨時可以查看您的收藏清單，不怕遺忘任何好去處！
+                        <div class="feature-tip">💡 點擊「❤️ 收藏」按鈕</div>
+                    </div>
+                </div>
+
+                <div class="feature-item" onclick="toggleFeature(this)">
+                    <div class="feature-header">
+                        <div class="feature-title">
+                            <span class="feature-icon">🌏</span>
+                            <span class="feature-name">海外旅遊</span>
+                        </div>
+                        <span class="feature-arrow">▼</span>
+                    </div>
+                    <div class="feature-desc">
+                        不只台灣！我們還收錄了日本、韓國、東南亞等熱門旅遊景點，讓您的退休生活走向世界！
+                        <div class="feature-tip">💡 傳送「找活動」瀏覽全部</div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="info-section">
-            <h3>🎯 主要功能</h3>
-            <ul>
-                <li>智慧推薦：根據天氣、偏好推薦活動</li>
-                <li>一鍵導航：直接開啟 Google Maps</li>
-                <li>多元活動：高雄 50+ 景點、全台熱門、海外旅遊</li>
-                <li>揪團功能：找伴一起出遊</li>
-                <li>收藏清單：儲存喜歡的活動</li>
+        <!-- 使用指令 -->
+        <div class="card">
+            <h2>💬 常用指令</h2>
+            <ul class="commands-list">
+                <li>
+                    <span class="cmd">今日推薦</span>
+                    <span class="cmd-desc">獲得 5 個個人化活動推薦</span>
+                </li>
+                <li>
+                    <span class="cmd">找活動</span>
+                    <span class="cmd-desc">瀏覽所有活動分類</span>
+                </li>
+                <li>
+                    <span class="cmd">揪團</span>
+                    <span class="cmd-desc">查看或建立揪團</span>
+                </li>
+                <li>
+                    <span class="cmd">天氣</span>
+                    <span class="cmd-desc">查看今日天氣與空氣品質</span>
+                </li>
+                <li>
+                    <span class="cmd">設定</span>
+                    <span class="cmd-desc">調整個人偏好設定</span>
+                </li>
+                <li>
+                    <span class="cmd">幫助</span>
+                    <span class="cmd-desc">查看完整功能說明</span>
+                </li>
             </ul>
         </div>
 
-        <div class="info-section">
-            <h3>📱 使用方式</h3>
-            <ul>
-                <li>傳送「今日推薦」獲得個人化推薦</li>
-                <li>傳送「找活動」瀏覽所有分類</li>
-                <li>傳送「揪團」查看或建立揪團</li>
-                <li>傳送「天氣」查看今日天氣</li>
-                <li>傳送「幫助」查看完整指令</li>
-            </ul>
-        </div>
-
+        <!-- Footer -->
         <div class="footer">
-            <p>
-                <a href="/admin/stats">📊 統計數據</a> |
-                <a href="/admin/export/activities">📥 匯出 CSV</a> |
+            <div class="footer-links">
+                <a href="/admin/stats">📊 統計數據</a>
+                <a href="/admin/export/activities">📥 匯出 CSV</a>
                 <a href="/api/health">🔧 系統狀態</a>
-            </p>
-            <p style="margin-top: 15px;">© 2024 退休福音 | Made with ❤️</p>
+            </div>
+            <p>© 2024 退休福音 | Made with ❤️ for a better retirement life</p>
         </div>
     </div>
 
     <script>
+        // 點擊展開/收合功能
+        function toggleFeature(element) {
+            // 關閉其他已展開的
+            document.querySelectorAll('.feature-item.active').forEach(item => {
+                if (item !== element) {
+                    item.classList.remove('active');
+                }
+            });
+            // 切換當前項目
+            element.classList.toggle('active');
+        }
+
         // 動態載入活動數量
         fetch('/api/activities?limit=1')
             .then(res => res.json())
