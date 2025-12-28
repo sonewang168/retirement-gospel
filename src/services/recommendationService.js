@@ -27,7 +27,7 @@ const WEIGHTS = {
 /**
  * 取得每日推薦
  */
-async function getDailyRecommendations(user, count = 3) {
+async function getDailyRecommendations(user, count = 5) {
     try {
         // 取得天氣和空品資訊（有預設值）
         const weatherInfo = await getWeatherInfo(user.city || '高雄市', user.district);
@@ -113,7 +113,7 @@ async function getFallbackActivities(user) {
 /**
  * 取得更多推薦
  */
-async function getMoreRecommendations(user, count = 5, excludeIds = []) {
+async function getMoreRecommendations(user, count = 10, excludeIds = []) {
     try {
         const weatherInfo = await getWeatherInfo(user.city || '高雄市', user.district);
         const airQualityInfo = await getAirQualityInfo(user.city || '高雄市');
