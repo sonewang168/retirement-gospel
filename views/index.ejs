@@ -61,7 +61,6 @@
         .stat-number { font-size: 2.5em; font-weight: bold; color: #E74C3C; }
         .stat-label { color: #666; margin-top: 5px; }
 
-        /* 可點擊展開的功能卡片 */
         .features-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -110,7 +109,7 @@
         .feature-desc {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.4s ease, padding 0.4s ease;
+            transition: max-height 0.4s ease, padding 0.4s ease, margin 0.4s ease;
             color: #666;
             line-height: 1.6;
         }
@@ -130,7 +129,6 @@
             margin-top: 10px;
         }
 
-        /* 指令列表 */
         .commands-list { list-style: none; }
         .commands-list li {
             padding: 15px;
@@ -183,14 +181,12 @@
 </head>
 <body>
     <div class="container">
-        <!-- 標題 -->
         <div class="header">
             <div class="logo">🌅</div>
             <h1>退休福音</h1>
             <p class="tagline">智慧生活規劃助手</p>
         </div>
 
-        <!-- 統計數據 -->
         <div class="card">
             <div class="stats-grid">
                 <div>
@@ -208,7 +204,6 @@
             </div>
         </div>
 
-        <!-- QR Code -->
         <div class="card qr-section">
             <h2>📱 立即加入 LINE 好友</h2>
             <div class="qr-code">
@@ -223,11 +218,10 @@
             </a>
         </div>
 
-        <!-- 功能介紹 - 點擊展開 -->
         <div class="card">
             <h2>🎯 主要功能（點擊查看詳情）</h2>
             <div class="features-grid">
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="1">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">✨</span>
@@ -241,7 +235,7 @@
                     </div>
                 </div>
 
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="2">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">🗺️</span>
@@ -255,7 +249,7 @@
                     </div>
                 </div>
 
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="3">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">👥</span>
@@ -269,7 +263,7 @@
                     </div>
                 </div>
 
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="4">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">🌤️</span>
@@ -283,7 +277,7 @@
                     </div>
                 </div>
 
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="5">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">❤️</span>
@@ -297,7 +291,7 @@
                     </div>
                 </div>
 
-                <div class="feature-item" onclick="toggleFeature(this)">
+                <div class="feature-item" data-feature="6">
                     <div class="feature-header">
                         <div class="feature-title">
                             <span class="feature-icon">🌏</span>
@@ -313,7 +307,6 @@
             </div>
         </div>
 
-        <!-- 使用指令 -->
         <div class="card">
             <h2>💬 常用指令</h2>
             <ul class="commands-list">
@@ -344,7 +337,6 @@
             </ul>
         </div>
 
-        <!-- Footer -->
         <div class="footer">
             <div class="footer-links">
                 <a href="/admin/stats">📊 統計數據</a>
@@ -356,27 +348,32 @@
     </div>
 
     <script>
-        // 點擊展開/收合功能
-        function toggleFeature(element) {
-            // 關閉其他已展開的
-            document.querySelectorAll('.feature-item.active').forEach(item => {
-                if (item !== element) {
-                    item.classList.remove('active');
-                }
+        document.addEventListener('DOMContentLoaded', function() {
+            var featureItems = document.querySelectorAll('.feature-item');
+            
+            featureItems.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var isActive = this.classList.contains('active');
+                    
+                    featureItems.forEach(function(otherItem) {
+                        otherItem.classList.remove('active');
+                    });
+                    
+                    if (!isActive) {
+                        this.classList.add('active');
+                    }
+                });
             });
-            // 切換當前項目
-            element.classList.toggle('active');
-        }
 
-        // 動態載入活動數量
-        fetch('/api/activities?limit=1')
-            .then(res => res.json())
-            .then(data => {
-                if (data.total) {
-                    document.getElementById('activityCount').textContent = data.total + '+';
-                }
-            })
-            .catch(() => {});
+            fetch('/api/activities?limit=1')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.total) {
+                        document.getElementById('activityCount').textContent = data.total + '+';
+                    }
+                })
+                .catch(function() {});
+        });
     </script>
 </body>
 </html>
