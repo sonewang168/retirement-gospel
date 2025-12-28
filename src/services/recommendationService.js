@@ -29,9 +29,12 @@ const WEIGHTS = {
  */
 async function getDailyRecommendations(user, count = 3) {
     try {
-        // 取得天氣和空品資訊
-        const weatherInfo = await getWeatherInfo(user.city, user.district);
-        const airQualityInfo = await getAirQualityInfo(user.city);
+        // 取得天氣和空品資訊（有預設值）
+        const weatherInfo = await getWeatherInfo(user.city || '高雄市', user.district);
+        const airQualityInfo = await getAirQualityInfo(user.city || '高雄市');
+
+        logger.info(`Weather info: ${JSON.stringify(weatherInfo)}`);
+        logger.info(`Air quality info: ${JSON.stringify(airQualityInfo)}`);
 
         // 取得用戶興趣
         const userInterests = await UserInterest.findAll({
@@ -40,6 +43,25 @@ async function getDailyRecommendations(user, count = 3) {
 
         // 取得候選活動
         const candidates = await getCandidateActivities(user, weatherInfo, airQualityInfo);
+        
+        logger.info(`Found ${candidates.length} candidate activities`);
+
+        if (candidates.length === 0) {
+            // 如果沒有候選活動，放寬條件重新搜尋
+            const fallbackCandidates = await getFallbackActivities(user);
+            logger.info(`Fallback found ${fallbackCandidates.length} activities`);
+            
+            if (fallbackCandidates.length === 0) {
+                return [];
+            }
+            
+            return fallbackCandidates.slice(0, count).map(activity => ({
+                activity,
+                score: 70,
+                scoreBreakdown: { fallback: true },
+                weatherInfo
+            }));
+        }
 
         // 計算推薦分數
         const scoredActivities = await Promise.all(
@@ -67,18 +89,49 @@ async function getDailyRecommendations(user, count = 3) {
 }
 
 /**
+ * 備用活動查詢（放寬所有條件）
+ */
+async function getFallbackActivities(user) {
+    try {
+        const activities = await Activity.findAll({
+            where: {
+                isActive: true
+            },
+            limit: 10,
+            order: [
+                ['isFeatured', 'DESC'],
+                ['rating', 'DESC']
+            ]
+        });
+        return activities;
+    } catch (error) {
+        logger.error('Error getting fallback activities:', error);
+        return [];
+    }
+}
+
+/**
  * 取得更多推薦
  */
 async function getMoreRecommendations(user, count = 5, excludeIds = []) {
     try {
-        const weatherInfo = await getWeatherInfo(user.city, user.district);
-        const airQualityInfo = await getAirQualityInfo(user.city);
+        const weatherInfo = await getWeatherInfo(user.city || '高雄市', user.district);
+        const airQualityInfo = await getAirQualityInfo(user.city || '高雄市');
 
         const userInterests = await UserInterest.findAll({
             where: { userId: user.id, isExcluded: false }
         });
 
         const candidates = await getCandidateActivities(user, weatherInfo, airQualityInfo, excludeIds);
+
+        if (candidates.length === 0) {
+            const fallback = await getFallbackActivities(user);
+            return fallback.slice(0, count).map(activity => ({
+                activity,
+                score: 70,
+                scoreBreakdown: { fallback: true }
+            }));
+        }
 
         const scoredActivities = await Promise.all(
             candidates.map(activity => calculateScore(activity, user, userInterests, weatherInfo, airQualityInfo))
@@ -100,24 +153,25 @@ async function getMoreRecommendations(user, count = 5, excludeIds = []) {
 async function getCandidateActivities(user, weatherInfo, airQualityInfo, excludeIds = []) {
     try {
         const whereClause = {
-            isActive: true,
-            city: user.city
+            isActive: true
         };
+
+        // 城市篩選（如果有設定）
+        if (user.city) {
+            whereClause.city = user.city;
+        }
 
         // 排除已推薦過的
         if (excludeIds.length > 0) {
             whereClause.id = { [Op.notIn]: excludeIds };
         }
 
-        // 根據天氣篩選
-        if (weatherInfo?.rainProbability > 50) {
-            // 高降雨機率時優先室內活動
+        // 只有在天氣真的很差時才強制室內
+        // 降雨機率 > 70% 且 AQI > 150 才強制室內
+        const forceIndoor = (weatherInfo?.rainProbability > 70) && (airQualityInfo?.aqi > 150);
+        if (forceIndoor) {
             whereClause.isIndoor = true;
-        }
-
-        // 根據空品篩選
-        if (airQualityInfo?.aqi > 100) {
-            whereClause.isIndoor = true;
+            logger.info('Forcing indoor activities due to bad weather/air quality');
         }
 
         // 根據行動能力篩選
@@ -127,10 +181,13 @@ async function getCandidateActivities(user, weatherInfo, airQualityInfo, exclude
             whereClause.difficultyLevel = { [Op.in]: ['easy', 'moderate'] };
         }
 
+        logger.info(`Query where clause: ${JSON.stringify(whereClause)}`);
+
         const activities = await Activity.findAll({
             where: whereClause,
             limit: 50,
             order: [
+                ['isFeatured', 'DESC'],
                 ['rating', 'DESC'],
                 ['reviewCount', 'DESC']
             ]
@@ -195,36 +252,26 @@ async function calculateScore(activity, user, userInterests, weatherInfo, airQua
  * 天氣適合度計算
  */
 function calculateWeatherScore(activity, weatherInfo) {
-    if (!weatherInfo) return 0.5;
+    if (!weatherInfo) return 0.7; // 沒資料時給予中等分數
 
     let score = 1.0;
 
-    // 降雨機率影響
     const rainProb = weatherInfo.rainProbability || 0;
     if (rainProb > 70 && !activity.isIndoor) {
-        score *= 0.3;
+        score *= 0.4;
     } else if (rainProb > 50 && !activity.isIndoor) {
-        score *= 0.6;
+        score *= 0.7;
     } else if (rainProb > 30 && !activity.isIndoor) {
-        score *= 0.8;
+        score *= 0.85;
     }
 
-    // 溫度影響
     const temp = weatherInfo.temperature || 25;
     if (temp > 35 && !activity.isIndoor) {
-        score *= 0.5;
+        score *= 0.6;
     } else if (temp > 32 && !activity.isIndoor) {
-        score *= 0.7;
-    } else if (temp < 15 && !activity.isIndoor) {
         score *= 0.8;
-    }
-
-    // 最佳天氣匹配
-    if (activity.bestWeather && activity.bestWeather.length > 0) {
-        const currentWeather = weatherInfo.description || '';
-        if (activity.bestWeather.some(w => currentWeather.includes(w))) {
-            score *= 1.2;
-        }
+    } else if (temp < 15 && !activity.isIndoor) {
+        score *= 0.85;
     }
 
     return Math.min(1, score);
@@ -234,30 +281,24 @@ function calculateWeatherScore(activity, weatherInfo) {
  * 空氣品質適合度計算
  */
 function calculateAqiScore(activity, airQualityInfo) {
-    if (!airQualityInfo) return 0.5;
+    if (!airQualityInfo) return 0.7; // 沒資料時給予中等分數
 
     const aqi = airQualityInfo.aqi || 50;
 
-    // 室內活動不受空品影響
     if (activity.isIndoor) return 1.0;
 
-    // 檢查活動最低 AQI 要求
-    if (activity.minAqiRequired && aqi > activity.minAqiRequired) {
-        return 0.2;
-    }
-
     if (aqi <= 50) return 1.0;
-    if (aqi <= 100) return 0.8;
-    if (aqi <= 150) return 0.5;
-    if (aqi <= 200) return 0.3;
-    return 0.1;
+    if (aqi <= 100) return 0.85;
+    if (aqi <= 150) return 0.6;
+    if (aqi <= 200) return 0.4;
+    return 0.2;
 }
 
 /**
  * 興趣匹配度計算
  */
 function calculateInterestScore(activity, userInterests) {
-    if (!userInterests || userInterests.length === 0) return 0.5;
+    if (!userInterests || userInterests.length === 0) return 0.6;
 
     const matchedInterest = userInterests.find(
         i => i.category === activity.category || i.subcategory === activity.subcategory
@@ -267,7 +308,7 @@ function calculateInterestScore(activity, userInterests) {
         return Math.min(1, matchedInterest.weight || 1.0);
     }
 
-    return 0.3; // 未匹配但不完全排除
+    return 0.4;
 }
 
 /**
@@ -280,12 +321,12 @@ function calculateMobilityScore(activity, user) {
     const mobilityMap = { 'low': 1, 'medium': 2, 'high': 3 };
     const difficultyMap = { 'easy': 1, 'moderate': 2, 'challenging': 3 };
 
-    const userLevel = mobilityMap[mobilityLevel];
-    const activityDifficulty = difficultyMap[activityLevel];
+    const userLevel = mobilityMap[mobilityLevel] || 2;
+    const activityDifficulty = difficultyMap[activityLevel] || 1;
 
     if (userLevel >= activityDifficulty) return 1.0;
-    if (userLevel === activityDifficulty - 1) return 0.6;
-    return 0.2;
+    if (userLevel === activityDifficulty - 1) return 0.7;
+    return 0.4;
 }
 
 /**
@@ -294,63 +335,39 @@ function calculateMobilityScore(activity, user) {
 function calculateTransportScore(activity, user) {
     const transportModes = user.transportMode || ['public_transit'];
 
-    // 有車的人彈性較大
     if (transportModes.includes('car') || transportModes.includes('motorcycle')) {
         return 1.0;
     }
 
-    // 需要接送的人
     if (transportModes.includes('need_ride')) {
-        return activity.publicTransitInfo ? 0.5 : 0.3;
+        return activity.publicTransitInfo ? 0.6 : 0.4;
     }
 
-    // 依賴大眾運輸
     if (transportModes.includes('public_transit')) {
-        return activity.publicTransitInfo ? 0.9 : 0.5;
+        return activity.publicTransitInfo ? 0.9 : 0.6;
     }
 
-    // 步行為主
-    if (transportModes.includes('walk')) {
-        // 這裡可以加上距離計算
-        return 0.7;
-    }
-
-    return 0.5;
+    return 0.6;
 }
 
 /**
  * 時間適合度計算
  */
 function calculateTimeScore(activity) {
-    const now = moment();
-    const hour = now.hour();
+    const hour = moment().tz('Asia/Taipei').hour();
 
-    // 檢查營業時間
     if (activity.openingHours) {
-        const dayOfWeek = now.format('dddd').toLowerCase();
+        const dayOfWeek = moment().tz('Asia/Taipei').format('dddd').toLowerCase();
         const todayHours = activity.openingHours[dayOfWeek];
-        
-        if (todayHours === 'closed') return 0;
-        
-        // 簡化處理，實際應解析營業時間
+        if (todayHours === 'closed') return 0.3;
     }
 
-    // 早上推薦戶外活動
-    if (hour >= 6 && hour <= 10 && !activity.isIndoor) {
-        return 1.0;
-    }
+    if (hour >= 6 && hour <= 10 && !activity.isIndoor) return 1.0;
+    if (hour >= 11 && hour <= 14 && !activity.isIndoor) return 0.7;
+    if (hour >= 15 && hour <= 18) return 1.0;
+    if (hour >= 19 && hour <= 21) return 0.8;
 
-    // 中午避免戶外
-    if (hour >= 11 && hour <= 14 && !activity.isIndoor) {
-        return 0.6;
-    }
-
-    // 傍晚適合各種活動
-    if (hour >= 15 && hour <= 18) {
-        return 1.0;
-    }
-
-    return 0.8;
+    return 0.7;
 }
 
 /**
@@ -376,7 +393,7 @@ async function saveRecommendations(userId, recommendations, weatherInfo, airQual
 }
 
 /**
- * 取消推薦（記錄用戶不喜歡）
+ * 取消推薦
  */
 async function dismissRecommendation(userId, activityId) {
     try {
@@ -385,7 +402,6 @@ async function dismissRecommendation(userId, activityId) {
             { where: { userId, activityId } }
         );
 
-        // 降低該類別的權重
         const activity = await Activity.findByPk(activityId);
         if (activity) {
             await UserInterest.update(
@@ -415,10 +431,7 @@ async function getActivitiesByCategory(category, user, limit = 10) {
         const activities = await Activity.findAll({
             where: whereClause,
             limit,
-            order: [
-                ['rating', 'DESC'],
-                ['reviewCount', 'DESC']
-            ]
+            order: [['rating', 'DESC'], ['reviewCount', 'DESC']]
         });
 
         return activities;
@@ -433,7 +446,6 @@ async function getActivitiesByCategory(category, user, limit = 10) {
  */
 async function getNearbyActivities(latitude, longitude, user, radius = 5) {
     try {
-        // 使用 Haversine 公式計算距離
         const activities = await Activity.findAll({
             where: {
                 isActive: true,
@@ -473,12 +485,10 @@ async function getNearbyActivities(latitude, longitude, user, radius = 5) {
  */
 async function getWeatherInfo(city, district) {
     try {
-        // 先查快取
         const cacheKey = `weather:${city}:${district || 'default'}`;
         const cached = await cacheService.get(cacheKey);
         if (cached) return cached;
 
-        // 從資料庫快取取得
         const today = moment().format('YYYY-MM-DD');
         const weatherCache = await WeatherCache.findOne({
             where: { city, date: today }
@@ -489,33 +499,26 @@ async function getWeatherInfo(city, district) {
             return weatherCache.toJSON();
         }
 
-        // 呼叫外部 API
         const weatherData = await weatherService.fetchWeather(city, district);
         
-        // 儲存快取
-        await WeatherCache.upsert({
-            city,
-            district,
-            date: today,
-            ...weatherData,
-            fetchedAt: new Date()
-        });
+        if (weatherData && weatherData.temperature) {
+            await WeatherCache.upsert({
+                city,
+                district,
+                date: today,
+                ...weatherData,
+                fetchedAt: new Date()
+            });
+            await cacheService.set(cacheKey, weatherData, 3600);
+            return weatherData;
+        }
 
-        await cacheService.set(cacheKey, weatherData, 3600);
-        return weatherData;
+        // 回傳預設值
+        return getDefaultWeather(city);
 
     } catch (error) {
         logger.error('Error getting weather info:', error);
-        return {
-            city,
-            temperature: 26,
-            temperatureMin: 22,
-            temperatureMax: 30,
-            humidity: 70,
-            rainProbability: 20,
-            description: '多雲時晴',
-            aqi: 50
-        };
+        return getDefaultWeather(city);
     }
 }
 
@@ -530,18 +533,45 @@ async function getAirQualityInfo(city) {
 
         const airQualityData = await weatherService.fetchAirQuality(city);
         
-        await cacheService.set(cacheKey, airQualityData, 3600);
-        return airQualityData;
+        if (airQualityData && airQualityData.aqi) {
+            await cacheService.set(cacheKey, airQualityData, 3600);
+            return airQualityData;
+        }
+
+        return getDefaultAirQuality(city);
 
     } catch (error) {
         logger.error('Error getting air quality info:', error);
-        return {
-            city,
-            aqi: 50,
-            aqiStatus: '良好',
-            pm25: 15
-        };
+        return getDefaultAirQuality(city);
     }
+}
+
+/**
+ * 預設天氣資料
+ */
+function getDefaultWeather(city) {
+    return {
+        city,
+        temperature: 25,
+        temperatureMin: 22,
+        temperatureMax: 28,
+        humidity: 65,
+        rainProbability: 20,
+        description: '多雲',
+        aqi: 50
+    };
+}
+
+/**
+ * 預設空氣品質資料
+ */
+function getDefaultAirQuality(city) {
+    return {
+        city,
+        aqi: 50,
+        aqiStatus: '良好',
+        pm25: 15
+    };
 }
 
 // ============================================
