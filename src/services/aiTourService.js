@@ -8,8 +8,8 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ;
 
 /**
  * 解析用戶輸入
@@ -148,6 +148,8 @@ async function generateWithOpenAI(prompt) {
  * 呼叫 Google Gemini
  */
 async function generateWithGemini(prompt) {
+    logger.info('ENV GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
+    logger.info('All env keys:', Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('OPENAI')));
     if (!GEMINI_API_KEY) {
         logger.warn('Gemini API key not configured');
         return null;
