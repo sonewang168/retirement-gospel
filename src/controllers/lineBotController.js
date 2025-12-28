@@ -153,7 +153,42 @@ async function handleKeywordMessage(text, user, client) {
         const recommendations = await recommendationService.getDailyRecommendations(user);
         return flexMessageBuilder.buildDailyRecommendations(recommendations, user);
     }
+// ============================================
+    // 出國旅遊行程（AI 生成）
+    // ============================================
+    if (matchKeywords(lowerText, ['出國', '旅遊', '幾日遊', '日遊', '自由行', '跟團', '行程規劃', '旅行'])) {
+        const aiTourService = require('../services/aiTourService');
+        
+        // 顯示生成中訊息
+        await client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+                type: 'text',
+                text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒\n（OpenAI + Gemini 雙引擎生成中）'
+            }]
+        });
 
+        // 用 push 發送結果（因為 reply 已用掉）
+        try {
+            const tours = await aiTourService.generateTourWithDualAI(text);
+            const flexMessage = flexMessageBuilder.buildAITourResults(tours, text);
+            
+            await client.pushMessage({
+                to: user.lineUserId,
+                messages: [flexMessage]
+            });
+        } catch (err) {
+            logger.error('AI Tour generation error:', err);
+            await client.pushMessage({
+                to: user.lineUserId,
+                messages: [{
+                    type: 'text',
+                    text: '抱歉，行程生成失敗，請稍後再試 🙏'
+                }]
+            });
+        }
+        return null;
+    }
     // ============================================
     // 天氣查詢（支援全球城市）
     // ============================================
