@@ -64,17 +64,56 @@ async function handleKeywordMessage(text, user, client, event) {
 
     // ========== 我的行程（放最前面！）==========
     if (lowerText.includes('我的行程') || lowerText.includes('我的收藏') || lowerText === '收藏') {
-        logger.info('Getting user tour plans...');
         var plans = await tourPlanService.getUserTourPlans(user.id);
-        logger.info('Found plans: ' + plans.length);
         
         if (plans.length === 0) {
             return { type: 'text', text: '📋 還沒有收藏行程\n\n輸入「日本5天」讓AI規劃！' };
         }
-        var list = plans.slice(0, 5).map(function(p, idx) {
-            return (idx + 1) + '. 🌍 ' + p.name + '\n   ' + p.country + ' ' + p.days + '天 | ' + p.source;
-        }).join('\n\n');
-        return { type: 'text', text: '📋 我的收藏行程\n\n' + list + '\n\n💡 輸入「日本5天」繼續規劃' };
+        
+        // 用 Flex Message 顯示行程列表（含刪除按鈕）
+        var bubbles = plans.slice(0, 5).map(function(p, idx) {
+            return {
+                type: 'bubble',
+                size: 'kilo',
+                header: {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        { type: 'text', text: '🌍 ' + p.name, weight: 'bold', size: 'md', color: '#ffffff', wrap: true }
+                    ],
+                    backgroundColor: '#E74C3C',
+                    paddingAll: 'md'
+                },
+                body: {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        { type: 'text', text: '📍 ' + p.country + ' | ' + p.days + '天', size: 'sm', color: '#666666' },
+                        { type: 'text', text: '💰 $' + (p.estimatedCostMin || 30000) + '-$' + (p.estimatedCostMax || 50000), size: 'sm', color: '#E74C3C', margin: 'sm' },
+                        { type: 'text', text: '🏷️ ' + p.source, size: 'xs', color: '#888888', margin: 'sm' }
+                    ],
+                    paddingAll: 'md'
+                },
+                footer: {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        { type: 'button', action: { type: 'postback', label: '📖 詳情', data: 'action=view_tour&id=' + p.id }, style: 'primary', color: '#3498DB', height: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '🗑️ 刪除', data: 'action=delete_tour&id=' + p.id }, style: 'secondary', height: 'sm', margin: 'sm' }
+                    ],
+                    paddingAll: 'sm'
+                }
+            };
+        });
+        
+        return {
+            type: 'flex',
+            altText: '我的收藏行程',
+            contents: {
+                type: 'carousel',
+                contents: bubbles
+            }
+        };
     }
 
     // ========== 出國旅遊 ==========
@@ -223,6 +262,33 @@ async function handlePostback(event, client) {
                     : { type: 'text', text: '⚠️ 收藏失敗，請重試' };
             } else {
                 response = { type: 'text', text: '⚠️ 行程儲存失敗，請重新生成' };
+            }
+        } else if (action === 'delete_tour') {
+            var delId = params.get('id');
+            var deleted = await tourPlanService.deleteTourPlan(delId, user.id);
+            response = deleted
+                ? { type: 'text', text: '🗑️ 已刪除！\n\n輸入「我的行程」查看剩餘收藏' }
+                : { type: 'text', text: '⚠️ 刪除失敗' };
+        } else if (action === 'view_tour') {
+            var viewId = params.get('id');
+            var { TourPlan } = require('../models');
+            var plan = await TourPlan.findByPk(viewId);
+            if (plan) {
+                var itText = (plan.itinerary || []).map(function(d) {
+                    return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
+                }).join('\n\n');
+                
+                response = { 
+                    type: 'text', 
+                    text: '🌍 ' + plan.name + '\n\n' +
+                          '📍 ' + plan.country + ' | ' + plan.days + '天\n' +
+                          '💰 $' + plan.estimatedCostMin + '-$' + plan.estimatedCostMax + '\n\n' +
+                          '✨ 亮點：' + (plan.highlights || []).join('、') + '\n\n' +
+                          '📋 行程：\n' + itText + '\n\n' +
+                          '💡 提醒：' + (plan.tips || []).join('、')
+                };
+            } else {
+                response = { type: 'text', text: '找不到此行程' };
             }
         } else if (action === 'daily_recommendation') {
             var recs = await recommendationService.getDailyRecommendations(user);

@@ -56,8 +56,23 @@ async function getUserTourPlans(userId) {
     }
 }
 
+async function deleteTourPlan(tourPlanId, userId) {
+    try {
+        const { TourPlan } = require('../models');
+        var result = await TourPlan.destroy({
+            where: { id: tourPlanId, userId: userId }
+        });
+        logger.info('Tour deleted: ' + tourPlanId + ', result: ' + result);
+        return result > 0;
+    } catch (error) {
+        logger.error('Delete tour error: ' + error.message);
+        return false;
+    }
+}
+
 module.exports = {
     saveTourToDb: saveTourToDb,
     confirmSaveTour: confirmSaveTour,
-    getUserTourPlans: getUserTourPlans
+    getUserTourPlans: getUserTourPlans,
+    deleteTourPlan: deleteTourPlan
 };
