@@ -113,7 +113,6 @@ async function handleTextMessage(event, client) {
             );
         }
 
-        // 傳入 event 參數
         const response = await handleKeywordMessage(text, user, client, event);
         
         if (response) {
@@ -135,36 +134,41 @@ async function handleTextMessage(event, client) {
 async function handleKeywordMessage(text, user, client, event) {
     const lowerText = text.toLowerCase();
 
-   // ============================================
+    // ============================================
     // 出國旅遊行程（AI 生成）
     // ============================================
     if (matchKeywords(lowerText, ['出國', '旅遊', '幾日遊', '日遊', '自由行', '跟團', '行程規劃', '旅行'])) {
         const aiTourService = require('../services/aiTourService');
         
-        // 背景執行 AI 生成，先回覆等待訊息
         setTimeout(async () => {
             try {
                 const tours = await aiTourService.generateTourWithDualAI(text);
-                const tour = tours[0];
                 
-                const itineraryText = (tour.itinerary || []).map(d => 
-                    `📅 Day${d.day} ${d.title}\n   ${(d.activities || []).join('、')}`
-                ).join('\n\n');
-                
-                const messageText = `🌍 ${tour.name}\n\n` +
-                    `📍 國家：${tour.country}\n` +
-                    `📆 天數：${tour.days} 天\n` +
-                    `💰 預算：$${tour.estimatedCost?.min || 30000} - $${tour.estimatedCost?.max || 50000}\n` +
-                    `🏷️ 來源：${tour.source}\n\n` +
-                    `✨ 亮點：${(tour.highlights || []).slice(0, 5).join('、')}\n\n` +
-                    `📋 行程安排：\n${itineraryText}\n\n` +
-                    `💡 小提醒：\n${(tour.tips || []).map(t => `• ${t}`).join('\n')}\n\n` +
-                    `🗓️ 最佳季節：${tour.bestSeason || '全年皆宜'}`;
-                
-                await client.pushMessage({
-                    to: user.lineUserId,
-                    messages: [{ type: 'text', text: messageText }]
-                });
+                for (let i = 0; i < tours.length; i++) {
+                    const tour = tours[i];
+                    const itineraryText = (tour.itinerary || []).map(d => 
+                        `📅 Day${d.day} ${d.title}\n   ${(d.activities || []).join('、')}`
+                    ).join('\n\n');
+                    
+                    const messageText = `🌍 【方案${i + 1}】${tour.name}\n\n` +
+                        `📍 國家：${tour.country}\n` +
+                        `📆 天數：${tour.days} 天\n` +
+                        `💰 預算：$${tour.estimatedCost?.min || 30000} - $${tour.estimatedCost?.max || 50000}\n` +
+                        `🏷️ 來源：${tour.source}\n\n` +
+                        `✨ 亮點：${(tour.highlights || []).slice(0, 5).join('、')}\n\n` +
+                        `📋 行程安排：\n${itineraryText}\n\n` +
+                        `💡 小提醒：\n${(tour.tips || []).map(t => `• ${t}`).join('\n')}\n\n` +
+                        `🗓️ 最佳季節：${tour.bestSeason || '全年皆宜'}`;
+                    
+                    await client.pushMessage({
+                        to: user.lineUserId,
+                        messages: [{ type: 'text', text: messageText }]
+                    });
+                    
+                    if (i < tours.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
                 
             } catch (err) {
                 logger.error('AI Tour error:', err.message);
@@ -177,9 +181,10 @@ async function handleKeywordMessage(text, user, client, event) {
         
         return {
             type: 'text',
-            text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒'
+            text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒\n（ChatGPT + Gemini 雙引擎生成中）'
         };
     }
+
     // ============================================
     // 今日推薦相關
     // ============================================
@@ -239,7 +244,7 @@ async function handleKeywordMessage(text, user, client, event) {
     // ============================================
     // 我的行程
     // ============================================
-    if (matchKeywords(lowerText, ['我的行程', '行程', '排程', '計畫', '待辦'])) {
+    if (matchKeywords(lowerText, ['我的行程', '排程', '計畫', '待辦'])) {
         const activities = await userService.getUserPlannedActivities(user.id);
         return flexMessageBuilder.buildMySchedule(activities);
     }
@@ -656,7 +661,6 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '已取消 ❌' };
                 break;
 
-            // AI 行程相關
             case 'view_tour_detail':
                 response = { type: 'text', text: '📋 詳細行程功能開發中...\n\n請直接截圖保存行程資訊！' };
                 break;
@@ -754,10 +758,7 @@ async function handleStickerMessage(event, client) {
         
         await client.replyMessage({
             replyToken: event.replyToken,
-            messages: [{
-                type: 'text',
-                text: randomResponse
-            }]
+            messages: [{ type: 'text', text: randomResponse }]
         });
 
     } catch (error) {
@@ -796,10 +797,7 @@ async function handleImageMessage(event, client) {
 
         await client.replyMessage({
             replyToken: event.replyToken,
-            messages: [{
-                type: 'text',
-                text: '收到您的照片了！📸\n\n如果是活動照片，可以在完成活動後上傳到足跡紀錄中喔！'
-            }]
+            messages: [{ type: 'text', text: '收到您的照片了！📸\n\n如果是活動照片，可以在完成活動後上傳到足跡紀錄中喔！' }]
         });
 
     } catch (error) {
