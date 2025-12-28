@@ -68,67 +68,87 @@ async function handleKeywordMessage(text, user, client, event) {
         
         setTimeout(async function() {
             try {
-                logger.info('=== Starting AI Tour ===');
                 var tours = await aiTourService.generateTourWithDualAI(text);
-                logger.info('Tours generated: ' + tours.length);
                 
                 for (var i = 0; i < tours.length; i++) {
                     var tour = tours[i];
-                    logger.info('Processing tour ' + i + ': ' + tour.name);
                     
                     // 存到資料庫
-                    var dbId = null;
-                    try {
-                        dbId = await tourPlanService.saveTourToDb(user.id, tour);
-                        logger.info('DB saved: ' + dbId);
-                    } catch (dbErr) {
-                        logger.error('DB save error: ' + dbErr.message);
-                    }
+                    var dbId = await tourPlanService.saveTourToDb(user.id, tour);
                     
                     // 建立行程文字
-                    var itineraryText = '';
-                    try {
-                        itineraryText = (tour.itinerary || []).map(function(d) {
-                            return 'Day' + d.day + ' ' + (d.title || '') + ': ' + (d.activities || []).join(', ');
-                        }).join('\n');
-                        logger.info('Itinerary built');
-                    } catch (itErr) {
-                        logger.error('Itinerary error: ' + itErr.message);
-                        itineraryText = '行程規劃中...';
-                    }
+                    var itineraryText = (tour.itinerary || []).map(function(d) {
+                        return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
+                    }).join('\n\n');
                     
-                    // 用簡單文字訊息（先不用 Flex）
-                    var messageText = '🌍 【方案' + (i + 1) + '】' + (tour.name || '精彩行程') + '\n\n' +
-                        '📍 國家：' + (tour.country || '海外') + '\n' +
-                        '📆 天數：' + (tour.days || 5) + ' 天\n' +
-                        '💰 預算：$' + (tour.estimatedCost?.min || 30000) + ' - $' + (tour.estimatedCost?.max || 50000) + '\n' +
-                        '🏷️ 來源：' + (tour.source || 'AI') + '\n\n' +
-                        '✨ 亮點：' + (tour.highlights || []).slice(0, 5).join('、') + '\n\n' +
-                        '📋 行程：\n' + itineraryText + '\n\n' +
-                        '💡 提醒：' + (tour.tips || []).join('、');
+                    // Flex Message 含收藏按鈕
+                    var flexMessage = {
+                        type: 'flex',
+                        altText: '【方案' + (i + 1) + '】' + (tour.name || '精彩行程'),
+                        contents: {
+                            type: 'bubble',
+                            size: 'giga',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌍 【方案' + (i + 1) + '】' + (tour.name || '精彩行程'), weight: 'bold', size: 'lg', color: '#ffffff', wrap: true },
+                                    { type: 'text', text: '🏷️ ' + (tour.source || 'AI'), size: 'sm', color: '#ffffff' }
+                                ],
+                                backgroundColor: i === 0 ? '#E74C3C' : '#3498DB',
+                                paddingAll: 'lg'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'box', layout: 'horizontal', contents: [
+                                        { type: 'text', text: '📍 國家', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: tour.country || '海外', size: 'sm', color: '#333333', flex: 3 }
+                                    ]},
+                                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                                        { type: 'text', text: '📆 天數', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: (tour.days || 5) + ' 天', size: 'sm', color: '#333333', flex: 3 }
+                                    ]},
+                                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                                        { type: 'text', text: '💰 預算', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: '$' + (tour.estimatedCost?.min || 30000) + '-$' + (tour.estimatedCost?.max || 50000), size: 'sm', color: '#E74C3C', flex: 3, weight: 'bold' }
+                                    ]},
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '✨ 亮點', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (tour.highlights || ['精彩景點']).slice(0, 5).join('、'), size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '📋 行程', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: itineraryText || '精彩行程規劃中', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '💡 提醒', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (tour.tips || ['祝您旅途愉快']).map(function(t) { return '• ' + t; }).join('\n'), size: 'xs', color: '#888888', wrap: true, margin: 'sm' }
+                                ],
+                                paddingAll: 'lg'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'horizontal',
+                                contents: [
+                                    { type: 'button', action: { type: 'postback', label: '❤️ 收藏', data: 'action=save_tour&id=' + (dbId || 'none') }, style: 'primary', color: '#E74C3C' },
+                                    { type: 'button', action: { type: 'uri', label: '🔍 查機票', uri: 'https://www.skyscanner.com.tw/' }, style: 'secondary', margin: 'sm' }
+                                ],
+                                paddingAll: 'md'
+                            }
+                        }
+                    };
                     
-                    logger.info('Sending message...');
-                    await client.pushMessage({
-                        to: user.lineUserId,
-                        messages: [{ type: 'text', text: messageText }]
-                    });
-                    logger.info('Message sent!');
-                    
-                    if (i < tours.length - 1) {
-                        await new Promise(function(r) { setTimeout(r, 500); });
-                    }
+                    await client.pushMessage({ to: user.lineUserId, messages: [flexMessage] });
+                    if (i < tours.length - 1) await new Promise(function(r) { setTimeout(r, 500); });
                 }
-                
-                logger.info('=== AI Tour Complete ===');
                 
             } catch (err) {
                 logger.error('AI Tour error: ' + err.message);
-                logger.error('Stack: ' + err.stack);
-                await client.pushMessage({ to: user.lineUserId, messages: [{ type: 'text', text: '行程生成失敗 🙏\n\n錯誤：' + err.message }] });
+                await client.pushMessage({ to: user.lineUserId, messages: [{ type: 'text', text: '行程生成失敗 🙏' }] });
             }
         }, 100);
         
-        return { type: 'text', text: '🤖 AI 正在規劃行程...\n⏳ 請稍候約 10 秒' };
+        return { type: 'text', text: '🤖 AI 正在規劃行程...\n⏳ 請稍候約 10 秒\n（ChatGPT + Gemini 雙引擎）' };
     }
 
     // 我的行程
@@ -144,7 +164,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // 今日推薦
-    if (matchKeywords(lowerText, ['今日推薦', '推薦', '今天'])) {
+    if (matchKeywords(lowerText, ['今日推薦', '推薦'])) {
         var recs = await recommendationService.getDailyRecommendations(user);
         return flexMessageBuilder.buildDailyRecommendations(recs, user);
     }
@@ -197,10 +217,14 @@ async function handlePostback(event, client) {
 
         if (action === 'save_tour') {
             var tourId = params.get('id');
-            var ok = await tourPlanService.confirmSaveTour(tourId, user.id);
-            response = ok 
-                ? { type: 'text', text: '❤️ 已收藏！輸入「我的行程」查看' }
-                : { type: 'text', text: '⚠️ 行程已過期，輸入「日本5天」重新規劃' };
+            if (tourId && tourId !== 'none') {
+                var ok = await tourPlanService.confirmSaveTour(tourId, user.id);
+                response = ok 
+                    ? { type: 'text', text: '❤️ 已收藏！\n\n輸入「我的行程」查看' }
+                    : { type: 'text', text: '⚠️ 收藏失敗，請重試' };
+            } else {
+                response = { type: 'text', text: '⚠️ 行程儲存失敗，請重新生成' };
+            }
         } else if (action === 'daily_recommendation') {
             var recs = await recommendationService.getDailyRecommendations(user);
             response = flexMessageBuilder.buildDailyRecommendations(recs, user);
