@@ -23,7 +23,6 @@ const COLORS = {
     white: '#FFFFFF',
     gray: '#95A5A6',
     
-    // 分類顏色
     nature: '#27AE60',
     food: '#E67E22',
     culture: '#9B59B6',
@@ -78,9 +77,7 @@ const CATEGORY_NAMES = {
 };
 
 /**
- * ============================================
  * 每日推薦訊息
- * ============================================
  */
 function buildDailyRecommendations(recommendations, user) {
     if (!recommendations || recommendations.length === 0) {
@@ -93,7 +90,8 @@ function buildDailyRecommendations(recommendations, user) {
     const weather = recommendations[0]?.weatherInfo || {};
     const greeting = getTimeBasedGreeting();
     
-    const bubbles = recommendations.slice(0, 3).map((rec, index) => 
+    // 改成顯示 5 個推薦
+    const bubbles = recommendations.slice(0, 5).map((rec, index) => 
         buildRecommendationBubble(rec, index + 1)
     );
 
@@ -103,9 +101,7 @@ function buildDailyRecommendations(recommendations, user) {
         contents: {
             type: 'carousel',
             contents: [
-                // 天氣總覽卡片
                 buildWeatherSummaryBubble(weather, user),
-                // 推薦活動卡片
                 ...bubbles
             ]
         }
@@ -258,7 +254,7 @@ function buildWeatherSummaryBubble(weather, user) {
 }
 
 /**
- * 推薦活動泡泡
+ * 推薦活動泡泡（含導航按鈕）
  */
 function buildRecommendationBubble(recommendation, rank) {
     const activity = recommendation.activity || recommendation;
@@ -266,6 +262,11 @@ function buildRecommendationBubble(recommendation, rank) {
     const categoryIcon = ICONS[activity.category] || '📍';
     const categoryColor = COLORS[activity.category] || COLORS.primary;
     const difficultyIcon = ICONS[activity.difficultyLevel] || '🟢';
+    
+    // 建立導航 URL
+    const navUrl = activity.latitude && activity.longitude 
+        ? `https://www.google.com/maps/dir/?api=1&destination=${activity.latitude},${activity.longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address || activity.name)}`;
     
     return {
         type: 'bubble',
@@ -418,43 +419,67 @@ function buildRecommendationBubble(recommendation, rank) {
         },
         footer: {
             type: 'box',
-            layout: 'horizontal',
+            layout: 'vertical',
             contents: [
                 {
-                    type: 'button',
-                    action: {
-                        type: 'postback',
-                        label: '詳細',
-                        data: `action=view_activity&id=${activity.id}`
-                    },
-                    style: 'secondary',
-                    height: 'sm',
-                    flex: 1
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'button',
+                            action: {
+                                type: 'uri',
+                                label: '🗺️ 導航',
+                                uri: navUrl
+                            },
+                            style: 'secondary',
+                            height: 'sm',
+                            flex: 1
+                        },
+                        {
+                            type: 'button',
+                            action: {
+                                type: 'postback',
+                                label: '詳細',
+                                data: `action=view_activity&id=${activity.id}`
+                            },
+                            style: 'secondary',
+                            height: 'sm',
+                            flex: 1,
+                            margin: 'sm'
+                        }
+                    ]
                 },
                 {
-                    type: 'button',
-                    action: {
-                        type: 'postback',
-                        label: '❤️ 收藏',
-                        data: `action=save_activity&id=${activity.id}`
-                    },
-                    style: 'secondary',
-                    height: 'sm',
-                    flex: 1,
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'button',
+                            action: {
+                                type: 'postback',
+                                label: '❤️ 收藏',
+                                data: `action=save_activity&id=${activity.id}`
+                            },
+                            style: 'secondary',
+                            height: 'sm',
+                            flex: 1
+                        },
+                        {
+                            type: 'button',
+                            action: {
+                                type: 'postback',
+                                label: '✓ 就決定',
+                                data: `action=adopt_activity&id=${activity.id}`
+                            },
+                            style: 'primary',
+                            height: 'sm',
+                            flex: 1,
+                            margin: 'sm',
+                            color: COLORS.primary
+                        }
+                    ],
                     margin: 'sm'
-                },
-                {
-                    type: 'button',
-                    action: {
-                        type: 'postback',
-                        label: '✓ 就決定',
-                        data: `action=adopt_activity&id=${activity.id}`
-                    },
-                    style: 'primary',
-                    height: 'sm',
-                    flex: 1,
-                    margin: 'sm',
-                    color: COLORS.primary
                 }
             ],
             paddingAll: '15px',
@@ -464,9 +489,7 @@ function buildRecommendationBubble(recommendation, rank) {
 }
 
 /**
- * ============================================
  * 活動詳情訊息
- * ============================================
  */
 function buildActivityDetail(activity, user) {
     if (!activity) {
@@ -476,6 +499,10 @@ function buildActivityDetail(activity, user) {
     const categoryIcon = ICONS[activity.category] || '📍';
     const categoryColor = COLORS[activity.category] || COLORS.primary;
     const difficultyIcon = ICONS[activity.difficultyLevel] || '🟢';
+    
+    const navUrl = activity.latitude && activity.longitude 
+        ? `https://www.google.com/maps/dir/?api=1&destination=${activity.latitude},${activity.longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address || activity.name)}`;
     
     return {
         type: 'flex',
@@ -501,25 +528,9 @@ function buildActivityDetail(activity, user) {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '⭐',
-                                        size: 'sm'
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: `${activity.rating || 4.5}`,
-                                        color: COLORS.white,
-                                        size: 'sm',
-                                        margin: 'xs'
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: `(${activity.reviewCount || 0})`,
-                                        color: COLORS.light,
-                                        size: 'xs',
-                                        margin: 'xs'
-                                    }
+                                    { type: 'text', text: '⭐', size: 'sm' },
+                                    { type: 'text', text: `${activity.rating || 4.5}`, color: COLORS.white, size: 'sm', margin: 'xs' },
+                                    { type: 'text', text: `(${activity.reviewCount || 0})`, color: COLORS.light, size: 'xs', margin: 'xs' }
                                 ],
                                 flex: 0
                             }
@@ -549,7 +560,6 @@ function buildActivityDetail(activity, user) {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    // 描述
                     {
                         type: 'text',
                         text: activity.description || '暫無描述',
@@ -558,167 +568,52 @@ function buildActivityDetail(activity, user) {
                         wrap: true,
                         maxLines: 5
                     },
-                    {
-                        type: 'separator',
-                        margin: 'lg'
-                    },
-                    // 詳細資訊
+                    { type: 'separator', margin: 'lg' },
                     {
                         type: 'box',
                         layout: 'vertical',
                         contents: [
-                            // 地址
                             {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '📍 地址',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: activity.address || `${activity.city}${activity.district}`,
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5,
-                                        wrap: true
-                                    }
+                                    { type: 'text', text: '📍 地址', size: 'sm', color: COLORS.gray, flex: 2 },
+                                    { type: 'text', text: activity.address || `${activity.city}${activity.district}`, size: 'sm', color: COLORS.dark, flex: 5, wrap: true }
                                 ]
                             },
-                            // 時間
                             {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '⏱️ 時長',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: formatDuration(activity.estimatedDuration),
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5
-                                    }
+                                    { type: 'text', text: '⏱️ 時長', size: 'sm', color: COLORS.gray, flex: 2 },
+                                    { type: 'text', text: formatDuration(activity.estimatedDuration), size: 'sm', color: COLORS.dark, flex: 5 }
                                 ],
                                 margin: 'md'
                             },
-                            // 難度
                             {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '💪 難度',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: `${difficultyIcon} ${getDifficultyText(activity.difficultyLevel)}`,
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5
-                                    }
+                                    { type: 'text', text: '💪 難度', size: 'sm', color: COLORS.gray, flex: 2 },
+                                    { type: 'text', text: `${difficultyIcon} ${getDifficultyText(activity.difficultyLevel)}`, size: 'sm', color: COLORS.dark, flex: 5 }
                                 ],
                                 margin: 'md'
                             },
-                            // 費用
                             {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '💰 費用',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: formatCost(activity.costMin, activity.costMax),
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5
-                                    }
+                                    { type: 'text', text: '💰 費用', size: 'sm', color: COLORS.gray, flex: 2 },
+                                    { type: 'text', text: formatCost(activity.costMin, activity.costMax), size: 'sm', color: COLORS.dark, flex: 5 }
                                 ],
                                 margin: 'md'
                             },
-                            // 無障礙
                             activity.isAccessible ? {
                                 type: 'box',
                                 layout: 'horizontal',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: '♿ 無障礙',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: activity.accessibilityInfo || '有無障礙設施',
-                                        size: 'sm',
-                                        color: COLORS.success,
-                                        flex: 5
-                                    }
-                                ],
-                                margin: 'md'
-                            } : null,
-                            // 停車
-                            {
-                                type: 'box',
-                                layout: 'horizontal',
-                                contents: [
-                                    {
-                                        type: 'text',
-                                        text: '🅿️ 停車',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: activity.parkingAvailable ? '有停車場' : '路邊停車',
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5
-                                    }
-                                ],
-                                margin: 'md'
-                            },
-                            // 交通
-                            activity.publicTransitInfo ? {
-                                type: 'box',
-                                layout: 'horizontal',
-                                contents: [
-                                    {
-                                        type: 'text',
-                                        text: '🚌 交通',
-                                        size: 'sm',
-                                        color: COLORS.gray,
-                                        flex: 2
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: activity.publicTransitInfo,
-                                        size: 'sm',
-                                        color: COLORS.dark,
-                                        flex: 5,
-                                        wrap: true
-                                    }
+                                    { type: 'text', text: '♿ 無障礙', size: 'sm', color: COLORS.gray, flex: 2 },
+                                    { type: 'text', text: activity.accessibilityInfo || '有無障礙設施', size: 'sm', color: COLORS.success, flex: 5 }
                                 ],
                                 margin: 'md'
                             } : null
@@ -726,19 +621,13 @@ function buildActivityDetail(activity, user) {
                         margin: 'lg',
                         spacing: 'sm'
                     },
-                    // 標籤
                     activity.tags && activity.tags.length > 0 ? {
                         type: 'box',
                         layout: 'horizontal',
                         contents: activity.tags.slice(0, 4).map(tag => ({
                             type: 'box',
                             layout: 'vertical',
-                            contents: [{
-                                type: 'text',
-                                text: `#${tag}`,
-                                size: 'xs',
-                                color: categoryColor
-                            }],
+                            contents: [{ type: 'text', text: `#${tag}`, size: 'xs', color: categoryColor }],
                             backgroundColor: `${categoryColor}20`,
                             paddingAll: '5px',
                             cornerRadius: 'md',
@@ -760,22 +649,14 @@ function buildActivityDetail(activity, user) {
                         contents: [
                             {
                                 type: 'button',
-                                action: {
-                                    type: 'uri',
-                                    label: '🗺️ 導航',
-                                    uri: `https://www.google.com/maps/search/?api=1&query=${activity.latitude},${activity.longitude}`
-                                },
+                                action: { type: 'uri', label: '🗺️ 導航', uri: navUrl },
                                 style: 'secondary',
                                 height: 'sm',
                                 flex: 1
                             },
                             {
                                 type: 'button',
-                                action: {
-                                    type: 'postback',
-                                    label: '❤️ 收藏',
-                                    data: `action=save_activity&id=${activity.id}`
-                                },
+                                action: { type: 'postback', label: '❤️ 收藏', data: `action=save_activity&id=${activity.id}` },
                                 style: 'secondary',
                                 height: 'sm',
                                 flex: 1,
@@ -789,11 +670,7 @@ function buildActivityDetail(activity, user) {
                         contents: [
                             {
                                 type: 'button',
-                                action: {
-                                    type: 'postback',
-                                    label: '👥 揪團去',
-                                    data: `action=create_group&activity_id=${activity.id}`
-                                },
+                                action: { type: 'postback', label: '👥 揪團去', data: `action=create_group&activity_id=${activity.id}` },
                                 style: 'primary',
                                 height: 'sm',
                                 flex: 1,
@@ -801,11 +678,7 @@ function buildActivityDetail(activity, user) {
                             },
                             {
                                 type: 'button',
-                                action: {
-                                    type: 'postback',
-                                    label: '✓ 加入行程',
-                                    data: `action=adopt_activity&id=${activity.id}`
-                                },
+                                action: { type: 'postback', label: '✓ 加入行程', data: `action=adopt_activity&id=${activity.id}` },
                                 style: 'primary',
                                 height: 'sm',
                                 flex: 1,
@@ -824,9 +697,7 @@ function buildActivityDetail(activity, user) {
 }
 
 /**
- * ============================================
  * 探索分類選單
- * ============================================
  */
 function buildExploreCategories() {
     const categories = [
@@ -848,20 +719,8 @@ function buildExploreCategories() {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    {
-                        type: 'text',
-                        text: '🔍 探索活動',
-                        color: COLORS.white,
-                        size: 'xl',
-                        weight: 'bold'
-                    },
-                    {
-                        type: 'text',
-                        text: '選擇您感興趣的類別',
-                        color: COLORS.light,
-                        size: 'sm',
-                        margin: 'sm'
-                    }
+                    { type: 'text', text: '🔍 探索活動', color: COLORS.white, size: 'xl', weight: 'bold' },
+                    { type: 'text', text: '選擇您感興趣的類別', color: COLORS.light, size: 'sm', margin: 'sm' }
                 ],
                 backgroundColor: COLORS.secondary,
                 paddingAll: '20px'
@@ -876,11 +735,7 @@ function buildExploreCategories() {
                         {
                             type: 'box',
                             layout: 'vertical',
-                            contents: [{
-                                type: 'text',
-                                text: cat.icon,
-                                size: 'xxl'
-                            }],
+                            contents: [{ type: 'text', text: cat.icon, size: 'xxl' }],
                             width: '50px',
                             alignItems: 'center',
                             justifyContent: 'center'
@@ -889,19 +744,8 @@ function buildExploreCategories() {
                             type: 'box',
                             layout: 'vertical',
                             contents: [
-                                {
-                                    type: 'text',
-                                    text: cat.name,
-                                    size: 'md',
-                                    weight: 'bold',
-                                    color: COLORS.dark
-                                },
-                                {
-                                    type: 'text',
-                                    text: cat.desc,
-                                    size: 'xs',
-                                    color: COLORS.gray
-                                }
+                                { type: 'text', text: cat.name, size: 'md', weight: 'bold', color: COLORS.dark },
+                                { type: 'text', text: cat.desc, size: 'xs', color: COLORS.gray }
                             ],
                             flex: 1,
                             justifyContent: 'center'
@@ -909,12 +753,7 @@ function buildExploreCategories() {
                         {
                             type: 'box',
                             layout: 'vertical',
-                            contents: [{
-                                type: 'text',
-                                text: '›',
-                                size: 'xl',
-                                color: COLORS.gray
-                            }],
+                            contents: [{ type: 'text', text: '›', size: 'xl', color: COLORS.gray }],
                             alignItems: 'center',
                             justifyContent: 'center'
                         }
@@ -923,11 +762,7 @@ function buildExploreCategories() {
                     backgroundColor: COLORS.white,
                     cornerRadius: 'lg',
                     margin: 'md',
-                    action: {
-                        type: 'postback',
-                        label: cat.name,
-                        data: `action=explore_category&category=${cat.key}`
-                    }
+                    action: { type: 'postback', label: cat.name, data: `action=explore_category&category=${cat.key}` }
                 })),
                 paddingAll: '15px',
                 backgroundColor: COLORS.light
@@ -938,11 +773,7 @@ function buildExploreCategories() {
                 contents: [
                     {
                         type: 'button',
-                        action: {
-                            type: 'postback',
-                            label: '📍 搜尋附近',
-                            data: 'action=search_nearby'
-                        },
+                        action: { type: 'postback', label: '📍 搜尋附近', data: 'action=search_nearby' },
                         style: 'primary',
                         color: COLORS.primary
                     }
@@ -954,9 +785,7 @@ function buildExploreCategories() {
 }
 
 /**
- * ============================================
  * 天氣卡片
- * ============================================
  */
 function buildWeatherCard(weather) {
     if (!weather) {
@@ -976,36 +805,14 @@ function buildWeatherCard(weather) {
                 type: 'box',
                 layout: 'horizontal',
                 contents: [
-                    {
-                        type: 'text',
-                        text: weatherIcon,
-                        size: '4xl',
-                        flex: 0
-                    },
+                    { type: 'text', text: weatherIcon, size: '4xl', flex: 0 },
                     {
                         type: 'box',
                         layout: 'vertical',
                         contents: [
-                            {
-                                type: 'text',
-                                text: weather.city || '高雄市',
-                                color: COLORS.white,
-                                size: 'sm'
-                            },
-                            {
-                                type: 'text',
-                                text: weather.description || '晴天',
-                                color: COLORS.white,
-                                size: 'xl',
-                                weight: 'bold'
-                            },
-                            {
-                                type: 'text',
-                                text: `${weather.temperature || 26}°C`,
-                                color: COLORS.white,
-                                size: 'xxl',
-                                weight: 'bold'
-                            }
+                            { type: 'text', text: weather.city || '高雄市', color: COLORS.white, size: 'sm' },
+                            { type: 'text', text: weather.description || '晴天', color: COLORS.white, size: 'xl', weight: 'bold' },
+                            { type: 'text', text: `${weather.temperature || 26}°C`, color: COLORS.white, size: 'xxl', weight: 'bold' }
                         ],
                         margin: 'lg'
                     }
@@ -1028,43 +835,17 @@ function buildWeatherCard(weather) {
                         ],
                         spacing: 'md'
                     },
-                    {
-                        type: 'separator',
-                        margin: 'lg'
-                    },
+                    { type: 'separator', margin: 'lg' },
                     {
                         type: 'box',
                         layout: 'horizontal',
                         contents: [
-                            {
-                                type: 'text',
-                                text: '空氣品質',
-                                size: 'sm',
-                                color: COLORS.gray
-                            },
-                            {
-                                type: 'text',
-                                text: `AQI ${weather.aqi || 50} ${aqiStatus.text}`,
-                                size: 'sm',
-                                color: aqiStatus.color,
-                                weight: 'bold',
-                                align: 'end'
-                            }
+                            { type: 'text', text: '空氣品質', size: 'sm', color: COLORS.gray },
+                            { type: 'text', text: `AQI ${weather.aqi || 50} ${aqiStatus.text}`, size: 'sm', color: aqiStatus.color, weight: 'bold', align: 'end' }
                         ],
                         margin: 'lg'
-                    },
-                    weather.aqi > 100 ? {
-                        type: 'box',
-                        layout: 'horizontal',
-                        contents: [{
-                            type: 'text',
-                            text: '⚠️ 建議減少戶外活動',
-                            size: 'sm',
-                            color: COLORS.warning
-                        }],
-                        margin: 'md'
-                    } : null
-                ].filter(Boolean),
+                    }
+                ],
                 paddingAll: '20px'
             },
             footer: {
@@ -1073,11 +854,7 @@ function buildWeatherCard(weather) {
                 contents: [
                     {
                         type: 'button',
-                        action: {
-                            type: 'postback',
-                            label: '查看適合的活動推薦',
-                            data: 'action=daily_recommendation'
-                        },
+                        action: { type: 'postback', label: '查看適合的活動推薦', data: 'action=daily_recommendation' },
                         style: 'primary',
                         color: COLORS.primary
                     }
@@ -1093,27 +870,9 @@ function buildWeatherInfoBox(icon, label, value) {
         type: 'box',
         layout: 'vertical',
         contents: [
-            {
-                type: 'text',
-                text: icon,
-                size: 'lg',
-                align: 'center'
-            },
-            {
-                type: 'text',
-                text: label,
-                size: 'xs',
-                color: COLORS.gray,
-                align: 'center',
-                margin: 'sm'
-            },
-            {
-                type: 'text',
-                text: value,
-                size: 'sm',
-                weight: 'bold',
-                align: 'center'
-            }
+            { type: 'text', text: icon, size: 'lg', align: 'center' },
+            { type: 'text', text: label, size: 'xs', color: COLORS.gray, align: 'center', margin: 'sm' },
+            { type: 'text', text: value, size: 'sm', weight: 'bold', align: 'center' }
         ],
         flex: 1,
         alignItems: 'center'
@@ -1121,9 +880,7 @@ function buildWeatherInfoBox(icon, label, value) {
 }
 
 /**
- * ============================================
  * 空氣品質卡片
- * ============================================
  */
 function buildAirQualityCard(airQuality) {
     if (!airQuality) {
@@ -1142,19 +899,8 @@ function buildAirQualityCard(airQuality) {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    {
-                        type: 'text',
-                        text: '🌬️ 空氣品質',
-                        color: COLORS.white,
-                        size: 'lg',
-                        weight: 'bold'
-                    },
-                    {
-                        type: 'text',
-                        text: airQuality.city || '高雄市',
-                        color: COLORS.light,
-                        size: 'sm'
-                    }
+                    { type: 'text', text: '🌬️ 空氣品質', color: COLORS.white, size: 'lg', weight: 'bold' },
+                    { type: 'text', text: airQuality.city || '高雄市', color: COLORS.light, size: 'sm' }
                 ],
                 backgroundColor: aqiStatus.bgColor,
                 paddingAll: '20px'
@@ -1171,55 +917,21 @@ function buildAirQualityCard(airQuality) {
                                 type: 'box',
                                 layout: 'vertical',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: 'AQI',
-                                        size: 'sm',
-                                        color: COLORS.gray
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: String(airQuality.aqi || 50),
-                                        size: '3xl',
-                                        weight: 'bold',
-                                        color: aqiStatus.color
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: aqiStatus.text,
-                                        size: 'md',
-                                        weight: 'bold',
-                                        color: aqiStatus.color
-                                    }
+                                    { type: 'text', text: 'AQI', size: 'sm', color: COLORS.gray },
+                                    { type: 'text', text: String(airQuality.aqi || 50), size: '3xl', weight: 'bold', color: aqiStatus.color },
+                                    { type: 'text', text: aqiStatus.text, size: 'md', weight: 'bold', color: aqiStatus.color }
                                 ],
                                 flex: 1,
                                 alignItems: 'center'
                             },
-                            {
-                                type: 'separator'
-                            },
+                            { type: 'separator' },
                             {
                                 type: 'box',
                                 layout: 'vertical',
                                 contents: [
-                                    {
-                                        type: 'text',
-                                        text: 'PM2.5',
-                                        size: 'sm',
-                                        color: COLORS.gray
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: `${airQuality.pm25 || 15}`,
-                                        size: 'xl',
-                                        weight: 'bold'
-                                    },
-                                    {
-                                        type: 'text',
-                                        text: 'μg/m³',
-                                        size: 'xs',
-                                        color: COLORS.gray
-                                    }
+                                    { type: 'text', text: 'PM2.5', size: 'sm', color: COLORS.gray },
+                                    { type: 'text', text: `${airQuality.pm25 || 15}`, size: 'xl', weight: 'bold' },
+                                    { type: 'text', text: 'μg/m³', size: 'xs', color: COLORS.gray }
                                 ],
                                 flex: 1,
                                 alignItems: 'center'
@@ -1227,21 +939,12 @@ function buildAirQualityCard(airQuality) {
                         ],
                         paddingAll: 'md'
                     },
-                    {
-                        type: 'separator',
-                        margin: 'lg'
-                    },
+                    { type: 'separator', margin: 'lg' },
                     {
                         type: 'box',
                         layout: 'vertical',
                         contents: [
-                            {
-                                type: 'text',
-                                text: aqiStatus.suggestion,
-                                size: 'sm',
-                                color: COLORS.dark,
-                                wrap: true
-                            }
+                            { type: 'text', text: aqiStatus.suggestion, size: 'sm', color: COLORS.dark, wrap: true }
                         ],
                         margin: 'lg'
                     }
@@ -1307,7 +1010,9 @@ function getDifficultyText(level) {
     }
 }
 
-// 繼續匯出...
+// ============================================
+// 匯出
+// ============================================
 module.exports = {
     buildDailyRecommendations,
     buildActivityDetail,
@@ -1316,7 +1021,6 @@ module.exports = {
     buildAirQualityCard,
     buildWeatherSummaryBubble,
     buildRecommendationBubble,
-    // 以下函數將在第二部分定義
     buildQuickActions: () => ({ type: 'text', text: '快速操作選單建構中...' }),
     buildOnboardingStart: () => ({ type: 'text', text: 'Onboarding 建構中...' }),
     buildGroupList: () => ({ type: 'text', text: '揪團列表建構中...' }),
