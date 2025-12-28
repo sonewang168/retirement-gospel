@@ -19,30 +19,21 @@ function parseUserInput(text) {
         country: null,
         days: null,
         budget: null,
-        theme: null,
-        preferences: []
+        theme: null
     };
 
     const countryMap = {
         '日本': '日本', '東京': '日本', '大阪': '日本', '京都': '日本', '沖繩': '日本', '北海道': '日本',
         '韓國': '韓國', '首爾': '韓國', '釜山': '韓國', '濟州': '韓國',
         '泰國': '泰國', '曼谷': '泰國', '普吉': '泰國', '清邁': '泰國',
-        '越南': '越南', '河內': '越南', '峴港': '越南', '胡志明': '越南',
+        '越南': '越南', '河內': '越南', '峴港': '越南',
         '新加坡': '新加坡',
-        '馬來西亞': '馬來西亞', '吉隆坡': '馬來西亞',
-        '印尼': '印尼', '峇里島': '印尼', '峇里': '印尼',
+        '馬來西亞': '馬來西亞',
+        '印尼': '印尼', '峇里島': '印尼',
         '法國': '法國', '巴黎': '法國',
-        '義大利': '義大利', '羅馬': '義大利', '威尼斯': '義大利',
-        '英國': '英國', '倫敦': '英國',
-        '德國': '德國', '柏林': '德國', '慕尼黑': '德國',
-        '西班牙': '西班牙', '巴塞隆納': '西班牙', '馬德里': '西班牙',
-        '美國': '美國', '紐約': '美國', '洛杉磯': '美國', '舊金山': '美國',
-        '澳洲': '澳洲', '雪梨': '澳洲', '墨爾本': '澳洲',
-        '紐西蘭': '紐西蘭',
-        '希臘': '希臘', '聖托里尼': '希臘',
-        '瑞士': '瑞士',
-        '捷克': '捷克', '布拉格': '捷克',
-        '荷蘭': '荷蘭', '阿姆斯特丹': '荷蘭'
+        '義大利': '義大利', '羅馬': '義大利',
+        '美國': '美國', '紐約': '美國', '洛杉磯': '美國',
+        '澳洲': '澳洲', '雪梨': '澳洲'
     };
 
     for (const [keyword, country] of Object.entries(countryMap)) {
@@ -56,31 +47,6 @@ function parseUserInput(text) {
     if (daysMatch) {
         result.days = parseInt(daysMatch[1]);
     }
-    const chineseDays = { '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
-    for (const [ch, num] of Object.entries(chineseDays)) {
-        if (text.includes(`${ch}天`) || text.includes(`${ch}日`)) {
-            result.days = num;
-            break;
-        }
-    }
-
-    const budgetMatch = text.match(/(\d+)\s*[萬万]/);
-    if (budgetMatch) {
-        result.budget = parseInt(budgetMatch[1]) * 10000;
-    }
-
-    const themes = {
-        '美食': '美食之旅', '購物': '購物血拼', '文化': '文化深度',
-        '自然': '自然風景', '海邊': '海島度假', '親子': '親子同樂',
-        '蜜月': '浪漫蜜月', '放鬆': '放鬆療癒', '賞櫻': '春季賞櫻', '賞楓': '秋季賞楓'
-    };
-
-    for (const [keyword, theme] of Object.entries(themes)) {
-        if (text.includes(keyword)) {
-            result.theme = theme;
-            result.preferences.push(keyword);
-        }
-    }
 
     return result;
 }
@@ -91,35 +57,60 @@ function parseUserInput(text) {
 function buildPrompt(parsed, userText) {
     const country = parsed.country || '日本';
     const days = parsed.days || 5;
-    const budget = parsed.budget ? `預算約 ${parsed.budget} 台幣` : '中等預算';
-    const theme = parsed.theme || '綜合體驗';
 
-    return `你是專業旅遊規劃師，為台灣退休族群規劃出國行程。
+    return `你是專業旅遊規劃師。請為台灣退休族群規劃 ${country} ${days} 天旅遊行程。
 
 用戶需求：${userText}
 
-請規劃 ${country} ${days} 天旅遊行程。
+請用以下 JSON 格式回覆（只要 JSON，不要其他文字）：
 
-要求：
-1. 行程輕鬆不趕
-2. ${budget}
-3. 主題：${theme}
-4. 包含必訪景點和美食
+{
+  "name": "${country}${days}日精彩遊",
+  "country": "${country}",
+  "days": ${days},
+  "estimatedCost": {"min": 30000, "max": 50000},
+  "highlights": ["景點1", "景點2", "景點3", "景點4", "景點5"],
+  "itinerary": [
+    {"day": 1, "title": "抵達", "activities": ["活動1", "活動2"]},
+    {"day": 2, "title": "觀光", "activities": ["活動1", "活動2"]},
+    {"day": 3, "title": "體驗", "activities": ["活動1", "活動2"]},
+    {"day": 4, "title": "購物", "activities": ["活動1", "活動2"]},
+    {"day": 5, "title": "返程", "activities": ["活動1", "活動2"]}
+  ],
+  "tips": ["提醒1", "提醒2", "提醒3"],
+  "bestSeason": "全年皆宜"
+}`;
+}
 
-請只回覆 JSON 格式（不要任何其他文字）：
-{"name":"行程名稱","country":"${country}","days":${days},"estimatedCost":{"min":30000,"max":50000},"highlights":["亮點1","亮點2","亮點3"],"itinerary":[{"day":1,"title":"第一天","activities":["活動1","活動2"]}],"tips":["提醒1","提醒2"],"bestSeason":"最佳季節"}`;
+/**
+ * 安全解析 JSON
+ */
+function safeParseJSON(content, source) {
+    try {
+        // 嘗試找出 JSON
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const tour = JSON.parse(jsonMatch[0]);
+            tour.source = source;
+            tour.id = source.toLowerCase().replace(/\s/g, '-') + '-' + Date.now();
+            return tour;
+        }
+    } catch (e) {
+        logger.error(`JSON parse error for ${source}:`, e.message);
+    }
+    return null;
 }
 
 /**
  * 呼叫 OpenAI GPT
  */
 async function generateWithOpenAI(prompt) {
-    try {
-        if (!OPENAI_API_KEY) {
-            logger.warn('OpenAI API key not configured');
-            return null;
-        }
+    if (!OPENAI_API_KEY) {
+        logger.warn('OpenAI API key not configured');
+        return null;
+    }
 
+    try {
         logger.info('Calling OpenAI API...');
 
         const response = await axios.post(
@@ -127,7 +118,6 @@ async function generateWithOpenAI(prompt) {
             {
                 model: 'gpt-3.5-turbo',
                 messages: [
-                    { role: 'system', content: '你是專業旅遊規劃師。請用繁體中文回覆，只回覆JSON格式。' },
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.7,
@@ -138,79 +128,104 @@ async function generateWithOpenAI(prompt) {
                     'Authorization': `Bearer ${OPENAI_API_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 25000
+                timeout: 30000
             }
         );
 
-        const content = response.data.choices[0]?.message?.content;
-        logger.info('OpenAI response received');
+        const content = response.data.choices?.[0]?.message?.content;
+        logger.info('OpenAI raw response:', content?.substring(0, 200));
         
-        if (!content) return null;
-
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            const tour = JSON.parse(jsonMatch[0]);
-            tour.source = 'ChatGPT';
-            tour.id = 'gpt-' + Date.now();
-            return tour;
+        if (content) {
+            return safeParseJSON(content, 'ChatGPT');
         }
-
-        return null;
-
     } catch (error) {
-        logger.error('OpenAI API error:', error.response?.data || error.message);
-        return null;
+        logger.error('OpenAI API error:', error.response?.data?.error?.message || error.message);
     }
+    return null;
 }
 
 /**
  * 呼叫 Google Gemini
  */
 async function generateWithGemini(prompt) {
-    try {
-        if (!GEMINI_API_KEY) {
-            logger.warn('Gemini API key not configured');
-            return null;
-        }
+    if (!GEMINI_API_KEY) {
+        logger.warn('Gemini API key not configured');
+        return null;
+    }
 
+    try {
         logger.info('Calling Gemini API...');
 
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
                 contents: [{
                     parts: [{ text: prompt }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1500
-                }
+                }]
             },
             {
                 headers: { 'Content-Type': 'application/json' },
-                timeout: 25000
+                timeout: 30000
             }
         );
 
         const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-        logger.info('Gemini response received');
+        logger.info('Gemini raw response:', content?.substring(0, 200));
         
-        if (!content) return null;
-
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            const tour = JSON.parse(jsonMatch[0]);
-            tour.source = 'Gemini';
-            tour.id = 'gemini-' + Date.now();
-            return tour;
+        if (content) {
+            return safeParseJSON(content, 'Gemini');
         }
-
-        return null;
-
     } catch (error) {
-        logger.error('Gemini API error:', error.response?.data || error.message);
-        return null;
+        logger.error('Gemini API error:', error.response?.data?.error?.message || error.message);
     }
+    return null;
+}
+
+/**
+ * 建立預設行程
+ */
+function buildDefaultTour(parsed) {
+    const country = parsed.country || '日本';
+    const days = parsed.days || 5;
+    
+    const defaultItineraries = {
+        '日本': [
+            { day: 1, title: '抵達東京', activities: ['成田機場', '新宿逛街', '居酒屋晚餐'] },
+            { day: 2, title: '東京經典', activities: ['淺草寺', '晴空塔', '秋葉原'] },
+            { day: 3, title: '文化體驗', activities: ['明治神宮', '原宿', '表參道'] },
+            { day: 4, title: '購物日', activities: ['銀座', '台場', '東京鐵塔夜景'] },
+            { day: 5, title: '返程', activities: ['築地市場', '機場'] }
+        ],
+        '韓國': [
+            { day: 1, title: '抵達首爾', activities: ['仁川機場', '明洞', '烤肉晚餐'] },
+            { day: 2, title: '古宮巡禮', activities: ['景福宮', '北村韓屋村', '三清洞'] },
+            { day: 3, title: '江南時尚', activities: ['COEX Mall', '狎鷗亭', 'N首爾塔'] },
+            { day: 4, title: '購物日', activities: ['東大門', '弘大商圈', '汗蒸幕'] },
+            { day: 5, title: '返程', activities: ['仁寺洞', '機場'] }
+        ],
+        '泰國': [
+            { day: 1, title: '抵達曼谷', activities: ['素萬那普機場', '考山路', '按摩'] },
+            { day: 2, title: '皇宮古蹟', activities: ['大皇宮', '玉佛寺', '臥佛寺'] },
+            { day: 3, title: '水上市場', activities: ['丹嫩莎朵水上市場', '下午茶', 'SPA'] },
+            { day: 4, title: '購物日', activities: ['洽圖洽市集', '暹羅百麗宮', '夜市'] },
+            { day: 5, title: '返程', activities: ['最後購物', '機場'] }
+        ]
+    };
+
+    const itinerary = defaultItineraries[country] || defaultItineraries['日本'];
+
+    return {
+        id: 'default-' + Date.now(),
+        name: `${country}${days}日精選遊`,
+        country: country,
+        days: days,
+        source: '系統推薦',
+        estimatedCost: { min: 30000, max: 50000 },
+        highlights: ['經典景點', '道地美食', '文化體驗', '購物血拼', '放鬆療癒'],
+        itinerary: itinerary.slice(0, days),
+        tips: ['記得帶護照', '換好當地貨幣', '下載離線地圖'],
+        bestSeason: '全年皆宜'
+    };
 }
 
 /**
@@ -220,8 +235,9 @@ async function generateTourWithDualAI(userText) {
     const parsed = parseUserInput(userText);
     const prompt = buildPrompt(parsed, userText);
 
-    logger.info('Generating tour with dual AI:', { parsed, userText });
+    logger.info('Generating tour:', { country: parsed.country, days: parsed.days });
 
+    // 同時呼叫兩個 AI
     const [gptResult, geminiResult] = await Promise.all([
         generateWithOpenAI(prompt),
         generateWithGemini(prompt)
@@ -231,28 +247,12 @@ async function generateTourWithDualAI(userText) {
     if (gptResult) results.push(gptResult);
     if (geminiResult) results.push(geminiResult);
 
-    logger.info(`AI generation results: GPT=${!!gptResult}, Gemini=${!!geminiResult}`);
+    logger.info(`AI results: GPT=${!!gptResult}, Gemini=${!!geminiResult}`);
 
+    // 如果都失敗，返回預設行程
     if (results.length === 0) {
-        logger.info('Both AI failed, returning default tour');
-        return [{
-            id: 'default-' + Date.now(),
-            name: `${parsed.country || '日本'}${parsed.days || 5}日精選遊`,
-            country: parsed.country || '日本',
-            days: parsed.days || 5,
-            source: '系統推薦',
-            estimatedCost: { min: 30000, max: 50000 },
-            highlights: ['經典景點', '道地美食', '文化體驗', '購物血拼', '放鬆療癒'],
-            itinerary: [
-                { day: 1, title: '抵達目的地', activities: ['機場接機', '飯店休息', '周邊探索'] },
-                { day: 2, title: '經典景點', activities: ['熱門景點', '當地美食', '文化體驗'] },
-                { day: 3, title: '深度探索', activities: ['在地生活', '特色市場', '傳統工藝'] },
-                { day: 4, title: '自由活動', activities: ['購物', '美食', '休閒'] },
-                { day: 5, title: '返程', activities: ['整理行李', '機場送機'] }
-            ].slice(0, parsed.days || 5),
-            tips: ['記得帶護照', '換好當地貨幣', '下載離線地圖'],
-            bestSeason: '全年皆宜'
-        }];
+        logger.info('Using default tour');
+        results.push(buildDefaultTour(parsed));
     }
 
     return results;
