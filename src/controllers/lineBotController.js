@@ -135,23 +135,14 @@ async function handleTextMessage(event, client) {
 async function handleKeywordMessage(text, user, client, event) {
     const lowerText = text.toLowerCase();
 
-    // ============================================
+   // ============================================
     // 出國旅遊行程（AI 生成）
     // ============================================
     if (matchKeywords(lowerText, ['出國', '旅遊', '幾日遊', '日遊', '自由行', '跟團', '行程規劃', '旅行'])) {
         const aiTourService = require('../services/aiTourService');
         
-        // 先回覆等待訊息
-        await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-                type: 'text',
-                text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒'
-            }]
-        });
-
-        // 背景執行 AI 生成
-        (async () => {
+        // 背景執行 AI 生成，先回覆等待訊息
+        setTimeout(async () => {
             try {
                 const tours = await aiTourService.generateTourWithDualAI(text);
                 const tour = tours[0];
@@ -172,25 +163,22 @@ async function handleKeywordMessage(text, user, client, event) {
                 
                 await client.pushMessage({
                     to: user.lineUserId,
-                    messages: [{
-                        type: 'text',
-                        text: messageText
-                    }]
+                    messages: [{ type: 'text', text: messageText }]
                 });
                 
             } catch (err) {
-                logger.error('AI Tour generation error:', err);
+                logger.error('AI Tour error:', err.message);
                 await client.pushMessage({
                     to: user.lineUserId,
-                    messages: [{
-                        type: 'text',
-                        text: '抱歉，行程生成失敗，請稍後再試 🙏'
-                    }]
+                    messages: [{ type: 'text', text: '抱歉，行程生成失敗 🙏' }]
                 });
             }
-        })();
+        }, 100);
         
-        return null;
+        return {
+            type: 'text',
+            text: '🤖 AI 正在為您規劃行程...\n\n⏳ 請稍候約 10 秒'
+        };
     }
     // ============================================
     // 今日推薦相關
