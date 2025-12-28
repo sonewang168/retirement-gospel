@@ -12,9 +12,9 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // 啟動時打印
 logger.info('=== AI Service Init ===');
-logger.info('OPENAI_API_KEY exists:', !!OPENAI_API_KEY);
-logger.info('GEMINI_API_KEY exists:', !!GEMINI_API_KEY);
-logger.info('GEMINI_API_KEY value:', GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 15) + '...' : 'EMPTY');
+logger.info('OPENAI exists: ' + (OPENAI_API_KEY ? 'YES' : 'NO'));
+logger.info('GEMINI exists: ' + (GEMINI_API_KEY ? 'YES' : 'NO'));
+logger.info('All API keys in env: ' + Object.keys(process.env).filter(k => k.includes('API') || k.includes('KEY')).join(', '));
 
 /**
  * 解析用戶輸入
@@ -73,7 +73,7 @@ function safeParseJSON(content, source) {
             return tour;
         }
     } catch (e) {
-        logger.error(`JSON parse error (${source}):`, e.message);
+        logger.error('JSON parse error (' + source + '): ' + e.message);
     }
     return null;
 }
@@ -82,7 +82,10 @@ function safeParseJSON(content, source) {
  * OpenAI
  */
 async function generateWithOpenAI(prompt) {
-    if (!OPENAI_API_KEY) return null;
+    const apiKey = process.env.OPENAI_API_KEY;
+    logger.info('OpenAI key check: ' + (apiKey ? 'EXISTS' : 'MISSING'));
+    
+    if (!apiKey) return null;
 
     try {
         logger.info('Calling OpenAI...');
@@ -96,7 +99,7 @@ async function generateWithOpenAI(prompt) {
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                    'Authorization': 'Bearer ' + apiKey,
                     'Content-Type': 'application/json'
                 },
                 timeout: 30000
@@ -106,7 +109,7 @@ async function generateWithOpenAI(prompt) {
         logger.info('OpenAI OK');
         return content ? safeParseJSON(content, 'ChatGPT') : null;
     } catch (error) {
-        logger.error('OpenAI error:', error.message);
+        logger.error('OpenAI error: ' + error.message);
         return null;
     }
 }
@@ -115,16 +118,15 @@ async function generateWithOpenAI(prompt) {
  * Gemini
  */
 async function generateWithGemini(prompt) {
-    logger.info('=== Gemini Debug ===');
-    logger.info('GEMINI_API_KEY check:', GEMINI_API_KEY ? 'EXISTS' : 'MISSING');
+    const apiKey = process.env.GEMINI_API_KEY;
+    logger.info('Gemini key check: ' + (apiKey ? 'EXISTS' : 'MISSING'));
     
-    if (!GEMINI_API_KEY) {
+    if (!apiKey) {
         logger.error('Gemini: No API key!');
         return null;
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-    logger.info('Gemini URL ready');
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey;
 
     try {
         logger.info('Calling Gemini...');
@@ -135,7 +137,7 @@ async function generateWithGemini(prompt) {
             timeout: 30000
         });
         
-        logger.info('Gemini response status:', response.status);
+        logger.info('Gemini status: ' + response.status);
         const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (content) {
@@ -145,12 +147,10 @@ async function generateWithGemini(prompt) {
         logger.error('Gemini: No content');
         return null;
     } catch (error) {
-        logger.error('=== Gemini Error Detail ===');
-        logger.error('Message:', error.message);
-        logger.error('Code:', error.code);
+        logger.error('Gemini error: ' + error.message);
         if (error.response) {
-            logger.error('Status:', error.response.status);
-            logger.error('Data:', JSON.stringify(error.response.data));
+            logger.error('Gemini status: ' + error.response.status);
+            logger.error('Gemini data: ' + JSON.stringify(error.response.data));
         }
         return null;
     }
@@ -165,8 +165,9 @@ function buildDefaultTour(parsed) {
     
     return {
         id: 'default-' + Date.now(),
-        name: `${country}${days}日精選遊`,
-        country, days,
+        name: country + days + '日精選遊',
+        country: country,
+        days: days,
         source: '系統推薦',
         estimatedCost: { min: 30000, max: 50000 },
         highlights: ['經典景點', '道地美食', '文化體驗'],
@@ -190,7 +191,7 @@ async function generateTourWithDualAI(userText) {
     const prompt = buildPrompt(parsed, userText);
 
     logger.info('=== Generate Tour ===');
-    logger.info('Country:', parsed.country, 'Days:', parsed.days);
+    logger.info('Country: ' + parsed.country + ', Days: ' + parsed.days);
 
     const [gptResult, geminiResult] = await Promise.all([
         generateWithOpenAI(prompt),
