@@ -12,6 +12,7 @@ const conversationService = require('../services/conversationService');
 const groupService = require('../services/groupService');
 const flexMessageBuilder = require('../linebot/flexMessageBuilder');
 const richMenuService = require('../linebot/richMenuService');
+const tourPlanService = require('../services/tourPlanService');
 const { User, ConversationState, Activity, Group } = require('../models');
 
 /**
@@ -21,7 +22,7 @@ const { User, ConversationState, Activity, Group } = require('../models');
  */
 async function handleFollow(event, client) {
     const userId = event.source.userId;
-    logger.info(`New follower: ${userId}`);
+    logger.info('New follower: ' + userId);
 
     try {
         const profile = await client.getProfile(userId);
@@ -56,7 +57,7 @@ function buildWelcomeMessages(user, displayName) {
         return [
             {
                 type: 'text',
-                text: `🌅 ${displayName}，歡迎加入退休福音！\n\n我是您的智慧生活規劃助手，每天為您推薦最適合的活動與行程。\n\n讓我先了解您一下，才能給您最貼心的建議 💪`
+                text: '🌅 ' + displayName + '，歡迎加入退休福音！\n\n我是您的智慧生活規劃助手，每天為您推薦最適合的活動與行程。\n\n讓我先了解您一下，才能給您最貼心的建議 💪'
             },
             flexMessageBuilder.buildOnboardingStart()
         ];
@@ -64,7 +65,7 @@ function buildWelcomeMessages(user, displayName) {
         return [
             {
                 type: 'text',
-                text: `🌅 ${displayName}，歡迎回來！\n\n很高興再次見到您～\n今天想做什麼呢？`
+                text: '🌅 ' + displayName + '，歡迎回來！\n\n很高興再次見到您～\n今天想做什麼呢？'
             },
             flexMessageBuilder.buildQuickActions()
         ];
@@ -78,7 +79,7 @@ function buildWelcomeMessages(user, displayName) {
  */
 async function handleUnfollow(event, client) {
     const userId = event.source.userId;
-    logger.info(`User unfollowed: ${userId}`);
+    logger.info('User unfollowed: ' + userId);
 
     try {
         await userService.deactivateUser(userId);
@@ -96,7 +97,7 @@ async function handleTextMessage(event, client) {
     const userId = event.source.userId;
     const text = event.message.text.trim();
     
-    logger.info(`Text message from ${userId}: ${text}`);
+    logger.info('Text message from ' + userId + ': ' + text);
 
     try {
         const user = await userService.getOrCreateUser(userId, client);
@@ -146,27 +147,173 @@ async function handleKeywordMessage(text, user, client, event) {
                 
                 for (let i = 0; i < tours.length; i++) {
                     const tour = tours[i];
-                    const itineraryText = (tour.itinerary || []).map(d => 
-                        `📅 Day${d.day} ${d.title}\n   ${(d.activities || []).join('、')}`
-                    ).join('\n\n');
                     
-                    const messageText = `🌍 【方案${i + 1}】${tour.name}\n\n` +
-                        `📍 國家：${tour.country}\n` +
-                        `📆 天數：${tour.days} 天\n` +
-                        `💰 預算：$${tour.estimatedCost?.min || 30000} - $${tour.estimatedCost?.max || 50000}\n` +
-                        `🏷️ 來源：${tour.source}\n\n` +
-                        `✨ 亮點：${(tour.highlights || []).slice(0, 5).join('、')}\n\n` +
-                        `📋 行程安排：\n${itineraryText}\n\n` +
-                        `💡 小提醒：\n${(tour.tips || []).map(t => `• ${t}`).join('\n')}\n\n` +
-                        `🗓️ 最佳季節：${tour.bestSeason || '全年皆宜'}`;
+                    // 暫存行程供收藏用
+                    tourPlanService.cacheTour(user.lineUserId, tour);
+                    
+                    const itineraryText = (tour.itinerary || []).map(function(d) {
+                        return '📅 Day' + d.day + ' ' + d.title + '\n   ' + (d.activities || []).join('、');
+                    }).join('\n\n');
+                    
+                    // 使用 Flex Message 顯示行程（含收藏按鈕）
+                    const flexMessage = {
+                        type: 'flex',
+                        altText: '【方案' + (i + 1) + '】' + tour.name,
+                        contents: {
+                            type: 'bubble',
+                            size: 'giga',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: '🌍 【方案' + (i + 1) + '】' + tour.name,
+                                        weight: 'bold',
+                                        size: 'lg',
+                                        color: '#ffffff',
+                                        wrap: true
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '🏷️ ' + tour.source,
+                                        size: 'sm',
+                                        color: '#ffffff'
+                                    }
+                                ],
+                                backgroundColor: i === 0 ? '#E74C3C' : '#3498DB',
+                                paddingAll: 'lg'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'text', text: '📍 國家', size: 'sm', color: '#888888', flex: 2 },
+                                            { type: 'text', text: tour.country, size: 'sm', color: '#333333', flex: 3 }
+                                        ]
+                                    },
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'text', text: '📆 天數', size: 'sm', color: '#888888', flex: 2 },
+                                            { type: 'text', text: tour.days + ' 天', size: 'sm', color: '#333333', flex: 3 }
+                                        ],
+                                        margin: 'md'
+                                    },
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'text', text: '💰 預算', size: 'sm', color: '#888888', flex: 2 },
+                                            { type: 'text', text: '$' + (tour.estimatedCost?.min || 30000) + ' - $' + (tour.estimatedCost?.max || 50000), size: 'sm', color: '#E74C3C', flex: 3, weight: 'bold' }
+                                        ],
+                                        margin: 'md'
+                                    },
+                                    { type: 'separator', margin: 'lg' },
+                                    {
+                                        type: 'text',
+                                        text: '✨ 亮點',
+                                        size: 'sm',
+                                        color: '#E74C3C',
+                                        weight: 'bold',
+                                        margin: 'lg'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: (tour.highlights || []).slice(0, 5).join('、'),
+                                        size: 'sm',
+                                        color: '#666666',
+                                        wrap: true,
+                                        margin: 'sm'
+                                    },
+                                    { type: 'separator', margin: 'lg' },
+                                    {
+                                        type: 'text',
+                                        text: '📋 行程安排',
+                                        size: 'sm',
+                                        color: '#E74C3C',
+                                        weight: 'bold',
+                                        margin: 'lg'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: itineraryText,
+                                        size: 'sm',
+                                        color: '#666666',
+                                        wrap: true,
+                                        margin: 'sm'
+                                    },
+                                    { type: 'separator', margin: 'lg' },
+                                    {
+                                        type: 'text',
+                                        text: '💡 小提醒',
+                                        size: 'sm',
+                                        color: '#E74C3C',
+                                        weight: 'bold',
+                                        margin: 'lg'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: (tour.tips || []).map(function(t) { return '• ' + t; }).join('\n'),
+                                        size: 'xs',
+                                        color: '#888888',
+                                        wrap: true,
+                                        margin: 'sm'
+                                    },
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'text', text: '🗓️ 最佳季節', size: 'xs', color: '#888888', flex: 2 },
+                                            { type: 'text', text: tour.bestSeason || '全年皆宜', size: 'xs', color: '#333333', flex: 3 }
+                                        ],
+                                        margin: 'lg'
+                                    }
+                                ],
+                                paddingAll: 'lg'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'horizontal',
+                                contents: [
+                                    {
+                                        type: 'button',
+                                        action: {
+                                            type: 'postback',
+                                            label: '❤️ 收藏這個',
+                                            data: 'action=save_tour&id=' + tour.id
+                                        },
+                                        style: 'primary',
+                                        color: '#E74C3C'
+                                    },
+                                    {
+                                        type: 'button',
+                                        action: {
+                                            type: 'uri',
+                                            label: '🔍 查機票',
+                                            uri: 'https://www.skyscanner.com.tw/'
+                                        },
+                                        style: 'secondary',
+                                        margin: 'sm'
+                                    }
+                                ],
+                                paddingAll: 'md'
+                            }
+                        }
+                    };
                     
                     await client.pushMessage({
                         to: user.lineUserId,
-                        messages: [{ type: 'text', text: messageText }]
+                        messages: [flexMessage]
                     });
                     
                     if (i < tours.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        await new Promise(function(resolve) { setTimeout(resolve, 500); });
                     }
                 }
                 
@@ -186,6 +333,29 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ============================================
+    // 我的行程（含收藏的出國行程）
+    // ============================================
+    if (matchKeywords(lowerText, ['我的行程', '收藏行程', '行程收藏'])) {
+        const tourPlans = await tourPlanService.getUserTourPlans(user.id);
+        
+        if (tourPlans.length === 0) {
+            return {
+                type: 'text',
+                text: '📋 您還沒有收藏任何行程\n\n輸入「日本5天自由行」讓 AI 幫您規劃，看到喜歡的就按「❤️ 收藏這個」！'
+            };
+        }
+        
+        const planList = tourPlans.slice(0, 5).map(function(p, i) {
+            return (i + 1) + '. 🌍 ' + p.name + '\n   ' + p.country + ' ' + p.days + '天 | ' + p.source;
+        }).join('\n\n');
+        
+        return {
+            type: 'text',
+            text: '📋 我的收藏行程\n\n' + planList + '\n\n💡 輸入「日本5天」繼續規劃新行程'
+        };
+    }
+
+    // ============================================
     // 今日推薦相關
     // ============================================
     if (matchKeywords(lowerText, ['今日推薦', '今天推薦', '推薦', '今天做什麼', '今天去哪', '推薦活動'])) {
@@ -200,9 +370,9 @@ async function handleKeywordMessage(text, user, client, event) {
         const weatherService = require('../services/weatherService');
         const supportedCities = weatherService.getSupportedCities();
         let targetCity = null;
-        for (const city of supportedCities) {
-            if (text.includes(city)) {
-                targetCity = city;
+        for (var j = 0; j < supportedCities.length; j++) {
+            if (text.includes(supportedCities[j])) {
+                targetCity = supportedCities[j];
                 break;
             }
         }
@@ -239,30 +409,6 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['發起揪團', '建立揪團', '我要揪團', '開團'])) {
         await conversationService.startFlow(user.id, 'create_group');
         return flexMessageBuilder.buildCreateGroupStart();
-    }
-
-    // ============================================
-    // 我的行程
-    // ============================================
-    if (matchKeywords(lowerText, ['我的行程', '排程', '計畫', '待辦'])) {
-        const activities = await userService.getUserPlannedActivities(user.id);
-        return flexMessageBuilder.buildMySchedule(activities);
-    }
-
-    // ============================================
-    // 收藏/想去
-    // ============================================
-    if (matchKeywords(lowerText, ['收藏', '想去', '我的收藏', '願望清單'])) {
-        const wishlist = await userService.getUserWishlist(user.id);
-        return flexMessageBuilder.buildWishlist(wishlist);
-    }
-
-    // ============================================
-    // 足跡/去過
-    // ============================================
-    if (matchKeywords(lowerText, ['足跡', '去過', '歷史', '紀錄'])) {
-        const history = await userService.getUserActivityHistory(user.id);
-        return flexMessageBuilder.buildActivityHistory(history);
     }
 
     // ============================================
@@ -306,15 +452,8 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['客服', '意見', '建議', '問題', '反饋', '聯繫'])) {
         return {
             type: 'text',
-            text: '感謝您的意見！\n\n📧 如有任何問題或建議，歡迎直接留言，我們會盡快回覆您。\n\n或者您也可以：\n• 撥打客服專線：0800-XXX-XXX\n• 寄信至：support@retirement-gospel.com'
+            text: '感謝您的意見！\n\n📧 如有任何問題或建議，歡迎直接留言，我們會盡快回覆您。'
         };
-    }
-
-    // ============================================
-    // 會員/訂閱
-    // ============================================
-    if (matchKeywords(lowerText, ['會員', '訂閱', '升級', 'premium', 'vip'])) {
-        return flexMessageBuilder.buildPremiumInfo(user);
     }
 
     // ============================================
@@ -324,7 +463,7 @@ async function handleKeywordMessage(text, user, client, event) {
         const greeting = getTimeBasedGreeting();
         return {
             type: 'text',
-            text: `${greeting}，${user.displayName || '您好'}！\n\n今天想做什麼呢？\n\n💡 輸入「今日推薦」查看為您精選的活動\n🔍 輸入「找活動」探索更多選擇\n👥 輸入「揪團」找人一起出遊\n🌍 輸入「日本5天自由行」AI幫你規劃行程`
+            text: greeting + '，' + (user.displayName || '您好') + '！\n\n今天想做什麼呢？\n\n💡 輸入「今日推薦」查看精選活動\n🔍 輸入「找活動」探索更多\n🌍 輸入「日本5天自由行」AI幫你規劃行程\n📋 輸入「我的行程」查看收藏'
         };
     }
 
@@ -350,7 +489,7 @@ async function handleKeywordMessage(text, user, client, event) {
 async function handleUnknownMessage(text, user) {
     return {
         type: 'text',
-        text: `抱歉，我不太理解「${text}」的意思 🤔\n\n您可以試試：\n📍 今日推薦 - 查看精選活動\n🔍 找活動 - 探索更多\n👥 揪團 - 找人同遊\n🌍 日本5天 - AI規劃出國行程\n⚙️ 設定 - 調整偏好\n❓ 幫助 - 查看功能說明`
+        text: '抱歉，我不太理解「' + text + '」的意思 🤔\n\n您可以試試：\n📍 今日推薦 - 查看精選活動\n🌍 日本5天 - AI規劃出國行程\n📋 我的行程 - 查看收藏\n❓ 幫助 - 查看功能說明'
     };
 }
 
@@ -358,7 +497,12 @@ async function handleUnknownMessage(text, user) {
  * 關鍵字匹配工具
  */
 function matchKeywords(text, keywords) {
-    return keywords.some(keyword => text.includes(keyword));
+    for (var i = 0; i < keywords.length; i++) {
+        if (text.includes(keywords[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -380,7 +524,7 @@ async function handlePostback(event, client) {
     const userId = event.source.userId;
     const data = event.postback.data;
     
-    logger.info(`Postback from ${userId}: ${data}`);
+    logger.info('Postback from ' + userId + ': ' + data);
 
     try {
         const user = await userService.getOrCreateUser(userId, client);
@@ -392,6 +536,24 @@ async function handlePostback(event, client) {
         let response;
 
         switch (action) {
+            // ============================================
+            // 收藏行程
+            // ============================================
+            case 'save_tour':
+                const tourId = params.get('id');
+                try {
+                    const saved = await tourPlanService.saveTourPlan(user.id, user.lineUserId, tourId);
+                    if (saved) {
+                        response = { type: 'text', text: '❤️ 已收藏此行程！\n\n輸入「我的行程」可隨時查看' };
+                    } else {
+                        response = { type: 'text', text: '⚠️ 行程已過期，請重新生成\n\n輸入「日本5天」重新規劃' };
+                    }
+                } catch (err) {
+                    logger.error('Save tour error:', err);
+                    response = { type: 'text', text: '收藏失敗，請稍後再試 🙏' };
+                }
+                break;
+
             case 'daily_recommendation':
                 const recommendations = await recommendationService.getDailyRecommendations(user);
                 response = flexMessageBuilder.buildDailyRecommendations(recommendations, user);
@@ -415,7 +577,7 @@ async function handlePostback(event, client) {
 
             case 'dismiss_activity':
                 await recommendationService.dismissRecommendation(user.id, params.get('id'));
-                response = { type: 'text', text: '好的，已移除此推薦\n之後會減少類似的推薦 👌' };
+                response = { type: 'text', text: '好的，已移除此推薦 👌' };
                 break;
 
             case 'more_recommendations':
@@ -469,32 +631,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildMySchedule(schedule);
                 break;
 
-            case 'complete_activity':
-                await userService.completeActivity(user.id, params.get('id'));
-                response = flexMessageBuilder.buildActivityCompleted();
-                break;
-
-            case 'rate_activity':
-                const rating = parseInt(params.get('rating'));
-                await userService.rateActivity(user.id, params.get('id'), rating);
-                response = { type: 'text', text: `感謝您的評價！${rating >= 4 ? '很高興您喜歡 😊' : '我們會繼續改進 💪'}` };
-                break;
-
-            case 'cancel_activity':
-                await userService.cancelActivity(user.id, params.get('id'));
-                response = { type: 'text', text: '已取消此活動' };
-                break;
-
-            case 'my_wishlist':
-                const wishlist = await userService.getUserWishlist(user.id);
-                response = flexMessageBuilder.buildWishlist(wishlist);
-                break;
-
-            case 'remove_wishlist':
-                await userService.removeFromWishlist(user.id, params.get('id'));
-                response = { type: 'text', text: '已從收藏移除' };
-                break;
-
             case 'settings':
                 response = flexMessageBuilder.buildSettingsMenu(user);
                 break;
@@ -504,93 +640,16 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildEditProfileStart(user);
                 break;
 
-            case 'edit_interests':
-                await conversationService.startFlow(user.id, 'edit_interests');
-                response = flexMessageBuilder.buildEditInterestsStart(user);
-                break;
-
-            case 'edit_location':
-                await conversationService.startFlow(user.id, 'edit_location');
-                response = flexMessageBuilder.buildEditLocationStart();
-                break;
-
-            case 'edit_notification':
-                response = flexMessageBuilder.buildNotificationSettings(user);
-                break;
-
-            case 'toggle_notification':
-                const enabled = params.get('enabled') === 'true';
-                await userService.updateNotificationSetting(user.id, enabled);
-                response = { type: 'text', text: enabled ? '已開啟推播通知 🔔' : '已關閉推播通知 🔕' };
-                break;
-
-            case 'set_push_time':
-                await conversationService.startFlow(user.id, 'set_push_time');
-                response = flexMessageBuilder.buildSetPushTimeStart();
-                break;
-
             case 'health_menu':
                 response = flexMessageBuilder.buildHealthMenu(user);
-                break;
-
-            case 'add_medication':
-                await conversationService.startFlow(user.id, 'add_medication');
-                response = flexMessageBuilder.buildAddMedicationStart();
-                break;
-
-            case 'view_medications':
-                const medications = await userService.getUserMedications(user.id);
-                response = flexMessageBuilder.buildMedicationList(medications);
-                break;
-
-            case 'add_appointment':
-                await conversationService.startFlow(user.id, 'add_appointment');
-                response = flexMessageBuilder.buildAddAppointmentStart();
-                break;
-
-            case 'view_appointments':
-                const appointments = await userService.getUserAppointments(user.id);
-                response = flexMessageBuilder.buildAppointmentList(appointments);
                 break;
 
             case 'family_menu':
                 response = flexMessageBuilder.buildFamilyMenu(user);
                 break;
 
-            case 'invite_family':
-                const inviteCode = await userService.generateFamilyInviteCode(user.id);
-                response = flexMessageBuilder.buildFamilyInvite(inviteCode);
-                break;
-
-            case 'view_family':
-                const family = await userService.getUserFamily(user.id);
-                response = flexMessageBuilder.buildFamilyList(family);
-                break;
-
-            case 'family_permissions':
-                response = flexMessageBuilder.buildFamilyPermissions(user);
-                break;
-
             case 'community_list':
                 response = flexMessageBuilder.buildCommunityList();
-                break;
-
-            case 'view_community':
-                const communityId = params.get('id');
-                response = await flexMessageBuilder.buildCommunityDetail(communityId);
-                break;
-
-            case 'join_community':
-                await userService.joinCommunity(user.id, params.get('id'));
-                response = { type: 'text', text: '歡迎加入！🎉' };
-                break;
-
-            case 'premium_info':
-                response = flexMessageBuilder.buildPremiumInfo(user);
-                break;
-
-            case 'subscribe':
-                response = flexMessageBuilder.buildSubscribePlans();
                 break;
 
             case 'start_onboarding':
@@ -606,52 +665,6 @@ async function handlePostback(event, client) {
                 };
                 break;
 
-            case 'onboarding_location':
-                const city = params.get('city');
-                await userService.updateUserCity(user.id, city);
-                response = flexMessageBuilder.buildOnboardingStep2(city);
-                break;
-
-            case 'onboarding_mobility':
-                const mobility = params.get('level');
-                await userService.updateMobility(user.id, mobility);
-                response = flexMessageBuilder.buildOnboardingStep3();
-                break;
-
-            case 'onboarding_interests':
-                const interests = params.get('interests').split(',');
-                await userService.updateInterests(user.id, interests);
-                response = flexMessageBuilder.buildOnboardingStep4();
-                break;
-
-            case 'onboarding_transport':
-                const transport = params.get('modes').split(',');
-                await userService.updateTransport(user.id, transport);
-                response = flexMessageBuilder.buildOnboardingComplete();
-                await userService.completeOnboarding(user.id);
-                break;
-
-            case 'date_selected':
-                const date = event.postback.params?.date;
-                if (date) {
-                    response = await conversationService.handleDateSelection(user.id, date);
-                }
-                break;
-
-            case 'time_selected':
-                const time = event.postback.params?.time;
-                if (time) {
-                    response = await conversationService.handleTimeSelection(user.id, time);
-                }
-                break;
-
-            case 'datetime_selected':
-                const datetime = event.postback.params?.datetime;
-                if (datetime) {
-                    response = await conversationService.handleDatetimeSelection(user.id, datetime);
-                }
-                break;
-
             case 'help':
                 response = flexMessageBuilder.buildHelpMenu();
                 break;
@@ -661,16 +674,8 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '已取消 ❌' };
                 break;
 
-            case 'view_tour_detail':
-                response = { type: 'text', text: '📋 詳細行程功能開發中...\n\n請直接截圖保存行程資訊！' };
-                break;
-
-            case 'save_tour':
-                response = { type: 'text', text: '❤️ 已收藏此行程！\n\n可隨時輸入「我的收藏」查看' };
-                break;
-
             default:
-                logger.warn(`Unknown postback action: ${action}`);
+                logger.warn('Unknown postback action: ' + action);
                 response = { type: 'text', text: '抱歉，此功能暫時無法使用' };
         }
 
@@ -696,28 +701,10 @@ async function handleLocationMessage(event, client) {
     const userId = event.source.userId;
     const { latitude, longitude, address } = event.message;
     
-    logger.info(`Location from ${userId}: ${latitude}, ${longitude}`);
+    logger.info('Location from ' + userId + ': ' + latitude + ', ' + longitude);
 
     try {
         const user = await userService.getOrCreateUser(userId, client);
-
-        const conversationState = await ConversationState.findOne({
-            where: { userId: user.id }
-        });
-
-        if (conversationState?.currentFlow) {
-            const response = await conversationService.handleLocationInput(
-                user, conversationState, { latitude, longitude, address }
-            );
-            
-            if (response) {
-                await client.replyMessage({
-                    replyToken: event.replyToken,
-                    messages: Array.isArray(response) ? response : [response]
-                });
-                return;
-            }
-        }
 
         const nearbyActivities = await recommendationService.getNearbyActivities(
             latitude, longitude, user
@@ -742,67 +729,20 @@ async function handleLocationMessage(event, client) {
  * ============================================
  */
 async function handleStickerMessage(event, client) {
-    const userId = event.source.userId;
+    const responses = ['😊', '收到您的貼圖了～有什麼需要幫忙的嗎？', '👍'];
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
     
-    try {
-        const user = await userService.getOrCreateUser(userId, client);
-        
-        const responses = [
-            '😊',
-            '收到您的貼圖了～有什麼需要幫忙的嗎？',
-            '今天想去哪裡走走呢？輸入「今日推薦」看看吧！',
-            '👍'
-        ];
-        
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        
-        await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{ type: 'text', text: randomResponse }]
-        });
-
-    } catch (error) {
-        logger.error('Error handling sticker message:', error);
-    }
+    await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: randomResponse }]
+    });
 }
 
-/**
- * ============================================
- * 圖片訊息處理
- * ============================================
- */
 async function handleImageMessage(event, client) {
-    const userId = event.source.userId;
-    
-    try {
-        const user = await userService.getOrCreateUser(userId, client);
-
-        const conversationState = await ConversationState.findOne({
-            where: { userId: user.id }
-        });
-
-        if (conversationState?.currentFlow === 'add_activity_photo') {
-            const response = await conversationService.handleImageInput(
-                user, conversationState, event.message
-            );
-            
-            if (response) {
-                await client.replyMessage({
-                    replyToken: event.replyToken,
-                    messages: Array.isArray(response) ? response : [response]
-                });
-                return;
-            }
-        }
-
-        await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{ type: 'text', text: '收到您的照片了！📸\n\n如果是活動照片，可以在完成活動後上傳到足跡紀錄中喔！' }]
-        });
-
-    } catch (error) {
-        logger.error('Error handling image message:', error);
-    }
+    await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{ type: 'text', text: '收到您的照片了！📸' }]
+    });
 }
 
 async function handleVideoMessage(event, client) {
@@ -815,7 +755,7 @@ async function handleVideoMessage(event, client) {
 async function handleAudioMessage(event, client) {
     await client.replyMessage({
         replyToken: event.replyToken,
-        messages: [{ type: 'text', text: '收到您的語音訊息了！🎤\n\n目前語音功能開發中，請先用文字訊息與我互動～' }]
+        messages: [{ type: 'text', text: '收到您的語音訊息了！🎤' }]
     });
 }
 
@@ -827,46 +767,33 @@ async function handleFileMessage(event, client) {
 }
 
 async function handleJoin(event, client) {
-    const sourceType = event.source.type;
-    const sourceId = sourceType === 'group' ? event.source.groupId : event.source.roomId;
-    
-    logger.info(`Bot joined ${sourceType}: ${sourceId}`);
-
-    try {
-        await client.replyMessage({
-            replyToken: event.replyToken,
-            messages: [{
-                type: 'text',
-                text: '大家好！我是退休福音小幫手 🌅\n\n我可以幫大家推薦好玩的地方、揪團出遊！\n\n📍 輸入「今日推薦」看看今天適合去哪\n👥 輸入「揪團」找人一起出遊\n🌍 輸入「日本5天」AI幫你規劃行程\n❓ 輸入「幫助」查看更多功能'
-            }]
-        });
-    } catch (error) {
-        logger.error('Error handling join event:', error);
-    }
+    await client.replyMessage({
+        replyToken: event.replyToken,
+        messages: [{
+            type: 'text',
+            text: '大家好！我是退休福音小幫手 🌅\n\n📍 輸入「今日推薦」看看今天適合去哪\n🌍 輸入「日本5天」AI幫你規劃行程'
+        }]
+    });
 }
 
 async function handleLeave(event, client) {
-    const sourceType = event.source.type;
-    const sourceId = sourceType === 'group' ? event.source.groupId : event.source.roomId;
-    logger.info(`Bot left ${sourceType}: ${sourceId}`);
+    logger.info('Bot left group/room');
 }
 
 async function handleMemberJoined(event, client) {
-    const members = event.joined.members;
-    logger.info(`Members joined: ${members.map(m => m.userId).join(', ')}`);
+    logger.info('Members joined');
 }
 
 async function handleMemberLeft(event, client) {
-    const members = event.left.members;
-    logger.info(`Members left: ${members.map(m => m.userId).join(', ')}`);
+    logger.info('Members left');
 }
 
 async function handleBeacon(event, client) {
-    logger.info(`Beacon event: ${event.beacon.hwid}`);
+    logger.info('Beacon event');
 }
 
 async function handleAccountLink(event, client) {
-    logger.info(`Account link event: ${event.link.result}`);
+    logger.info('Account link event');
 }
 
 module.exports = {

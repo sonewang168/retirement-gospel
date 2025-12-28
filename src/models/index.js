@@ -1469,6 +1469,77 @@ const UsageStats = sequelize.define('UsageStats', {
 });
 
 // ============================================
+// AI 行程收藏模型（新增）
+// ============================================
+const TourPlan = sequelize.define('TourPlan', {
+    id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        primaryKey: true
+    },
+    userId: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        field: 'user_id'
+    },
+    name: {
+        type: Sequelize.STRING(200),
+        allowNull: false
+    },
+    country: {
+        type: Sequelize.STRING(50),
+        allowNull: false
+    },
+    days: {
+        type: Sequelize.INTEGER,
+        allowNull: false
+    },
+    source: {
+        type: Sequelize.STRING(50),
+        defaultValue: 'AI'
+    },
+    estimatedCostMin: {
+        type: Sequelize.INTEGER,
+        field: 'estimated_cost_min'
+    },
+    estimatedCostMax: {
+        type: Sequelize.INTEGER,
+        field: 'estimated_cost_max'
+    },
+    highlights: {
+        type: Sequelize.JSONB,
+        defaultValue: []
+    },
+    itinerary: {
+        type: Sequelize.JSONB,
+        defaultValue: []
+    },
+    tips: {
+        type: Sequelize.JSONB,
+        defaultValue: []
+    },
+    bestSeason: {
+        type: Sequelize.STRING(50),
+        field: 'best_season'
+    },
+    status: {
+        type: Sequelize.ENUM('saved', 'planned', 'completed'),
+        defaultValue: 'saved'
+    },
+    plannedDate: {
+        type: Sequelize.DATE,
+        field: 'planned_date'
+    },
+    note: {
+        type: Sequelize.TEXT
+    }
+}, {
+    tableName: 'tour_plans',
+    timestamps: true,
+    underscored: true
+});
+
+// ============================================
 // 建立關聯
 // ============================================
 
@@ -1502,6 +1573,9 @@ AppointmentReminder.belongsTo(User, { foreignKey: 'userId' });
 
 User.hasOne(ConversationState, { foreignKey: 'userId' });
 ConversationState.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasMany(TourPlan, { foreignKey: 'userId', as: 'tourPlans' });
+TourPlan.belongsTo(User, { foreignKey: 'userId' });
 
 // Activity 關聯
 Activity.hasMany(Event, { foreignKey: 'activityId' });
@@ -1548,11 +1622,9 @@ CommunityMember.belongsTo(User, { foreignKey: 'userId' });
 
 async function initDatabase() {
     try {
-        // 測試連線
         await sequelize.authenticate();
         logger.info('資料庫連線成功');
 
-        // 同步模型 (開發環境使用 alter: true)
         const syncOptions = process.env.NODE_ENV === 'production' 
             ? {} 
             : { alter: true };
@@ -1591,5 +1663,6 @@ module.exports = {
     Community,
     CommunityMember,
     ConversationState,
-    UsageStats
+    UsageStats,
+    TourPlan
 };
