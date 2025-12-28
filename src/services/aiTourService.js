@@ -56,7 +56,7 @@ function buildPrompt(parsed, userText) {
 3. 包含當地必吃美食推薦
 4. 預算以台幣計算
 
-請回覆 JSON 格式（只要JSON，不要其他文字）：
+請回覆 JSON 格式（只要JSON，不要其他文字，注意不要有多餘逗號）：
 {
   "name": "有創意的行程名稱",
   "country": "${country}",
@@ -64,8 +64,7 @@ function buildPrompt(parsed, userText) {
   "estimatedCost": {"min": 預算下限, "max": 預算上限},
   "highlights": ["真實景點1", "真實景點2", "真實景點3", "真實景點4", "真實景點5"],
   "itinerary": [
-    {"day": 1, "title": "主題標題", "activities": ["具體活動含地點", "具體活動含地點", "具體活動含地點"]},
-    ... 每天都要有
+    {"day": 1, "title": "主題標題", "activities": ["具體活動含地點", "具體活動含地點", "具體活動含地點"]}
   ],
   "tips": ["實用建議1", "實用建議2", "實用建議3"],
   "bestSeason": "最佳旅遊月份"
@@ -73,13 +72,18 @@ function buildPrompt(parsed, userText) {
 }
 
 /**
- * 安全解析 JSON
+ * 安全解析 JSON（處理多餘逗號）
  */
 function safeParseJSON(content, source) {
     try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            const tour = JSON.parse(jsonMatch[0]);
+            let jsonStr = jsonMatch[0];
+            // 移除多餘的逗號（常見 AI 錯誤）
+            jsonStr = jsonStr.replace(/,\s*]/g, ']');
+            jsonStr = jsonStr.replace(/,\s*}/g, '}');
+            
+            const tour = JSON.parse(jsonStr);
             tour.source = source;
             tour.id = source.toLowerCase() + '-' + Date.now();
             return tour;
@@ -91,7 +95,7 @@ function safeParseJSON(content, source) {
 }
 
 /**
- * OpenAI GPT-4
+ * OpenAI GPT
  */
 async function generateWithOpenAI(prompt) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -107,7 +111,7 @@ async function generateWithOpenAI(prompt) {
             {
                 model: 'gpt-3.5-turbo',
                 messages: [
-                    { role: 'system', content: '你是專業旅遊規劃師，請用繁體中文回覆，提供真實詳細的旅遊資訊。' },
+                    { role: 'system', content: '你是專業旅遊規劃師，請用繁體中文回覆，提供真實詳細的旅遊資訊。回覆純JSON格式，不要markdown。' },
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.8,
@@ -140,7 +144,6 @@ async function generateWithGemini(prompt) {
         return null;
     }
 
-    // 使用 Gemini 2.0 Flash
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
 
     try {
