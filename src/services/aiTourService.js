@@ -154,28 +154,30 @@ async function generateWithGemini(prompt) {
     }
 
     try {
-        logger.info('Calling Gemini API...');
+        logger.info('Calling Gemini API with key:', GEMINI_API_KEY.substring(0, 10) + '...');
 
-        // 使用 gemini-pro 模型
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+        // 嘗試 v1beta 端點
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
         
-        const response = await axios.post(url, {
+        logger.info('Gemini URL:', url.replace(GEMINI_API_KEY, 'HIDDEN'));
+
+        const requestBody = {
             contents: [{
-                role: 'user',
                 parts: [{ text: prompt }]
-            }],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2000,
-                topP: 0.8,
-                topK: 40
-            }
-        }, {
+            }]
+        };
+
+        const response = await axios.post(url, requestBody, {
             headers: { 'Content-Type': 'application/json' },
             timeout: 30000
         });
 
         logger.info('Gemini response status:', response.status);
+
+        if (response.data.error) {
+            logger.error('Gemini API returned error:', response.data.error);
+            return null;
+        }
 
         const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
         
@@ -183,14 +185,16 @@ async function generateWithGemini(prompt) {
             logger.info('Gemini raw response:', content.substring(0, 200));
             return safeParseJSON(content, 'Gemini');
         } else {
-            logger.error('Gemini no content in response:', JSON.stringify(response.data));
+            logger.error('Gemini no content:', JSON.stringify(response.data).substring(0, 500));
         }
     } catch (error) {
+        logger.error('Gemini full error:', error.toString());
         if (error.response) {
-            logger.error('Gemini API error status:', error.response.status);
-            logger.error('Gemini API error data:', JSON.stringify(error.response.data));
-        } else {
-            logger.error('Gemini API error:', error.message);
+            logger.error('Gemini status:', error.response.status);
+            logger.error('Gemini data:', JSON.stringify(error.response.data).substring(0, 500));
+        }
+        if (error.code) {
+            logger.error('Gemini error code:', error.code);
         }
     }
     return null;
