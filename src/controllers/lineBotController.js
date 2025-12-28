@@ -24,20 +24,16 @@ async function handleFollow(event, client) {
     logger.info(`New follower: ${userId}`);
 
     try {
-        // 取得用戶資料
         const profile = await client.getProfile(userId);
         
-        // 建立或更新用戶
         const user = await userService.createOrUpdateUser({
             lineUserId: userId,
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl
         });
 
-        // 設定 Rich Menu
         await richMenuService.setDefaultMenu(client, userId);
 
-        // 發送歡迎訊息
         const welcomeMessages = buildWelcomeMessages(user, profile.displayName);
         
         await client.replyMessage({
@@ -45,7 +41,6 @@ async function handleFollow(event, client) {
             messages: welcomeMessages
         });
 
-        // 記錄統計
         await userService.recordUsageStats(user.id, 'follow');
 
     } catch (error) {
@@ -54,9 +49,6 @@ async function handleFollow(event, client) {
     }
 }
 
-/**
- * 建立歡迎訊息
- */
 function buildWelcomeMessages(user, displayName) {
     const isNewUser = !user.onboardingCompleted;
 
@@ -107,13 +99,10 @@ async function handleTextMessage(event, client) {
     logger.info(`Text message from ${userId}: ${text}`);
 
     try {
-        // 取得或建立用戶
         const user = await userService.getOrCreateUser(userId, client);
         
-        // 更新最後活躍時間
         await userService.updateLastActive(user.id);
 
-        // 檢查是否在對話流程中
         const conversationState = await ConversationState.findOne({
             where: { userId: user.id }
         });
@@ -124,8 +113,8 @@ async function handleTextMessage(event, client) {
             );
         }
 
-        // 一般訊息處理 - 關鍵字匹配
-        const response = await handleKeywordMessage(text, user, client);
+        // 傳入 event 參數
+        const response = await handleKeywordMessage(text, user, client, event);
         
         if (response) {
             await client.replyMessage({
@@ -143,23 +132,16 @@ async function handleTextMessage(event, client) {
 /**
  * 關鍵字訊息處理
  */
-async function handleKeywordMessage(text, user, client) {
+async function handleKeywordMessage(text, user, client, event) {
     const lowerText = text.toLowerCase();
 
     // ============================================
-    // 今日推薦相關
-    // ============================================
-    if (matchKeywords(lowerText, ['今日推薦', '今天推薦', '推薦', '今天做什麼', '今天去哪', '推薦活動'])) {
-        const recommendations = await recommendationService.getDailyRecommendations(user);
-        return flexMessageBuilder.buildDailyRecommendations(recommendations, user);
-    }
-// ============================================
     // 出國旅遊行程（AI 生成）
     // ============================================
     if (matchKeywords(lowerText, ['出國', '旅遊', '幾日遊', '日遊', '自由行', '跟團', '行程規劃', '旅行'])) {
         const aiTourService = require('../services/aiTourService');
         
-        // 顯示生成中訊息
+        // 先回覆等待訊息
         await client.replyMessage({
             replyToken: event.replyToken,
             messages: [{
@@ -168,7 +150,7 @@ async function handleKeywordMessage(text, user, client) {
             }]
         });
 
-        // 用 push 發送結果（因為 reply 已用掉）
+        // 用 push 發送結果
         try {
             const tours = await aiTourService.generateTourWithDualAI(text);
             const flexMessage = flexMessageBuilder.buildAITourResults(tours, text);
@@ -189,32 +171,35 @@ async function handleKeywordMessage(text, user, client) {
         }
         return null;
     }
+
+    // ============================================
+    // 今日推薦相關
+    // ============================================
+    if (matchKeywords(lowerText, ['今日推薦', '今天推薦', '推薦', '今天做什麼', '今天去哪', '推薦活動'])) {
+        const recommendations = await recommendationService.getDailyRecommendations(user);
+        return flexMessageBuilder.buildDailyRecommendations(recommendations, user);
+    }
+
     // ============================================
     // 天氣查詢（支援全球城市）
     // ============================================
     if (matchKeywords(lowerText, ['天氣', '氣象', '會下雨', '溫度'])) {
-        // 嘗試從訊息中提取城市名稱
         const weatherService = require('../services/weatherService');
         const supportedCities = weatherService.getSupportedCities();
-        
         let targetCity = null;
-        
-        // 檢查訊息中是否包含支援的城市名稱
         for (const city of supportedCities) {
             if (text.includes(city)) {
                 targetCity = city;
                 break;
             }
         }
-        
-        // 如果沒有指定城市，使用用戶預設城市
         if (!targetCity) {
             targetCity = user.city || '高雄市';
         }
-        
         const weather = await weatherService.getCompleteWeatherInfo(targetCity);
         return flexMessageBuilder.buildWeatherCard(weather);
     }
+
     // ============================================
     // 空氣品質
     // ============================================
@@ -326,7 +311,7 @@ async function handleKeywordMessage(text, user, client) {
         const greeting = getTimeBasedGreeting();
         return {
             type: 'text',
-            text: `${greeting}，${user.displayName || '您好'}！\n\n今天想做什麼呢？\n\n💡 輸入「今日推薦」查看為您精選的活動\n🔍 輸入「找活動」探索更多選擇\n👥 輸入「揪團」找人一起出遊`
+            text: `${greeting}，${user.displayName || '您好'}！\n\n今天想做什麼呢？\n\n💡 輸入「今日推薦」查看為您精選的活動\n🔍 輸入「找活動」探索更多選擇\n👥 輸入「揪團」找人一起出遊\n🌍 輸入「日本5天自由行」AI幫你規劃行程`
         };
     }
 
@@ -341,7 +326,7 @@ async function handleKeywordMessage(text, user, client) {
     }
 
     // ============================================
-    // 預設回應 - 使用 AI 理解意圖
+    // 預設回應
     // ============================================
     return await handleUnknownMessage(text, user);
 }
@@ -350,12 +335,9 @@ async function handleKeywordMessage(text, user, client) {
  * 處理無法識別的訊息
  */
 async function handleUnknownMessage(text, user) {
-    // 這裡可以接入 AI 理解意圖
-    // 暫時返回預設回應
-    
     return {
         type: 'text',
-        text: `抱歉，我不太理解「${text}」的意思 🤔\n\n您可以試試：\n📍 今日推薦 - 查看精選活動\n🔍 找活動 - 探索更多\n👥 揪團 - 找人同遊\n⚙️ 設定 - 調整偏好\n❓ 幫助 - 查看功能說明`
+        text: `抱歉，我不太理解「${text}」的意思 🤔\n\n您可以試試：\n📍 今日推薦 - 查看精選活動\n🔍 找活動 - 探索更多\n👥 揪團 - 找人同遊\n🌍 日本5天 - AI規劃出國行程\n⚙️ 設定 - 調整偏好\n❓ 幫助 - 查看功能說明`
     };
 }
 
@@ -391,16 +373,12 @@ async function handlePostback(event, client) {
         const user = await userService.getOrCreateUser(userId, client);
         await userService.updateLastActive(user.id);
 
-        // 解析 postback data
         const params = new URLSearchParams(data);
         const action = params.get('action');
 
         let response;
 
         switch (action) {
-            // ============================================
-            // 推薦相關
-            // ============================================
             case 'daily_recommendation':
                 const recommendations = await recommendationService.getDailyRecommendations(user);
                 response = flexMessageBuilder.buildDailyRecommendations(recommendations, user);
@@ -432,9 +410,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildMoreRecommendations(moreRecs);
                 break;
 
-            // ============================================
-            // 分類探索
-            // ============================================
             case 'explore_category':
                 const category = params.get('category');
                 const activities = await recommendationService.getActivitiesByCategory(category, user);
@@ -445,9 +420,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildRequestLocation();
                 break;
 
-            // ============================================
-            // 揪團相關
-            // ============================================
             case 'view_groups':
                 const groups = await groupService.getOpenGroups(user.city);
                 response = flexMessageBuilder.buildGroupList(groups);
@@ -479,9 +451,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildMyGroups(myGroups);
                 break;
 
-            // ============================================
-            // 行程相關
-            // ============================================
             case 'my_schedule':
                 const schedule = await userService.getUserPlannedActivities(user.id);
                 response = flexMessageBuilder.buildMySchedule(schedule);
@@ -503,9 +472,6 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '已取消此活動' };
                 break;
 
-            // ============================================
-            // 收藏相關
-            // ============================================
             case 'my_wishlist':
                 const wishlist = await userService.getUserWishlist(user.id);
                 response = flexMessageBuilder.buildWishlist(wishlist);
@@ -516,9 +482,6 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '已從收藏移除' };
                 break;
 
-            // ============================================
-            // 設定相關
-            // ============================================
             case 'settings':
                 response = flexMessageBuilder.buildSettingsMenu(user);
                 break;
@@ -553,9 +516,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildSetPushTimeStart();
                 break;
 
-            // ============================================
-            // 健康相關
-            // ============================================
             case 'health_menu':
                 response = flexMessageBuilder.buildHealthMenu(user);
                 break;
@@ -580,9 +540,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildAppointmentList(appointments);
                 break;
 
-            // ============================================
-            // 家人相關
-            // ============================================
             case 'family_menu':
                 response = flexMessageBuilder.buildFamilyMenu(user);
                 break;
@@ -601,9 +558,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildFamilyPermissions(user);
                 break;
 
-            // ============================================
-            // 社群相關
-            // ============================================
             case 'community_list':
                 response = flexMessageBuilder.buildCommunityList();
                 break;
@@ -618,9 +572,6 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '歡迎加入！🎉' };
                 break;
 
-            // ============================================
-            // 會員相關
-            // ============================================
             case 'premium_info':
                 response = flexMessageBuilder.buildPremiumInfo(user);
                 break;
@@ -629,9 +580,6 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildSubscribePlans();
                 break;
 
-            // ============================================
-            // Onboarding 相關
-            // ============================================
             case 'start_onboarding':
                 await conversationService.startFlow(user.id, 'onboarding');
                 response = flexMessageBuilder.buildOnboardingStep1();
@@ -670,9 +618,6 @@ async function handlePostback(event, client) {
                 await userService.completeOnboarding(user.id);
                 break;
 
-            // ============================================
-            // 日期選擇器
-            // ============================================
             case 'date_selected':
                 const date = event.postback.params?.date;
                 if (date) {
@@ -694,9 +639,6 @@ async function handlePostback(event, client) {
                 }
                 break;
 
-            // ============================================
-            // 其他
-            // ============================================
             case 'help':
                 response = flexMessageBuilder.buildHelpMenu();
                 break;
@@ -704,6 +646,15 @@ async function handlePostback(event, client) {
             case 'cancel_flow':
                 await conversationService.cancelFlow(user.id);
                 response = { type: 'text', text: '已取消 ❌' };
+                break;
+
+            // AI 行程相關
+            case 'view_tour_detail':
+                response = { type: 'text', text: '📋 詳細行程功能開發中...\n\n請直接截圖保存行程資訊！' };
+                break;
+
+            case 'save_tour':
+                response = { type: 'text', text: '❤️ 已收藏此行程！\n\n可隨時輸入「我的收藏」查看' };
                 break;
 
             default:
@@ -738,7 +689,6 @@ async function handleLocationMessage(event, client) {
     try {
         const user = await userService.getOrCreateUser(userId, client);
 
-        // 檢查是否在對話流程中需要位置
         const conversationState = await ConversationState.findOne({
             where: { userId: user.id }
         });
@@ -757,7 +707,6 @@ async function handleLocationMessage(event, client) {
             }
         }
 
-        // 預設：搜尋附近活動
         const nearbyActivities = await recommendationService.getNearbyActivities(
             latitude, longitude, user
         );
@@ -786,7 +735,6 @@ async function handleStickerMessage(event, client) {
     try {
         const user = await userService.getOrCreateUser(userId, client);
         
-        // 隨機回應
         const responses = [
             '😊',
             '收到您的貼圖了～有什麼需要幫忙的嗎？',
@@ -820,13 +768,11 @@ async function handleImageMessage(event, client) {
     try {
         const user = await userService.getOrCreateUser(userId, client);
 
-        // 檢查是否在需要圖片的對話流程中
         const conversationState = await ConversationState.findOne({
             where: { userId: user.id }
         });
 
         if (conversationState?.currentFlow === 'add_activity_photo') {
-            // 處理活動照片上傳
             const response = await conversationService.handleImageInput(
                 user, conversationState, event.message
             );
@@ -853,46 +799,27 @@ async function handleImageMessage(event, client) {
     }
 }
 
-/**
- * ============================================
- * 其他訊息類型處理
- * ============================================
- */
 async function handleVideoMessage(event, client) {
     await client.replyMessage({
         replyToken: event.replyToken,
-        messages: [{
-            type: 'text',
-            text: '收到您的影片了！🎬'
-        }]
+        messages: [{ type: 'text', text: '收到您的影片了！🎬' }]
     });
 }
 
 async function handleAudioMessage(event, client) {
     await client.replyMessage({
         replyToken: event.replyToken,
-        messages: [{
-            type: 'text',
-            text: '收到您的語音訊息了！🎤\n\n目前語音功能開發中，請先用文字訊息與我互動～'
-        }]
+        messages: [{ type: 'text', text: '收到您的語音訊息了！🎤\n\n目前語音功能開發中，請先用文字訊息與我互動～' }]
     });
 }
 
 async function handleFileMessage(event, client) {
     await client.replyMessage({
         replyToken: event.replyToken,
-        messages: [{
-            type: 'text',
-            text: '收到您的檔案了！📁'
-        }]
+        messages: [{ type: 'text', text: '收到您的檔案了！📁' }]
     });
 }
 
-/**
- * ============================================
- * 群組/聊天室事件處理
- * ============================================
- */
 async function handleJoin(event, client) {
     const sourceType = event.source.type;
     const sourceId = sourceType === 'group' ? event.source.groupId : event.source.roomId;
@@ -904,7 +831,7 @@ async function handleJoin(event, client) {
             replyToken: event.replyToken,
             messages: [{
                 type: 'text',
-                text: '大家好！我是退休福音小幫手 🌅\n\n我可以幫大家推薦好玩的地方、揪團出遊！\n\n📍 輸入「今日推薦」看看今天適合去哪\n👥 輸入「揪團」找人一起出遊\n❓ 輸入「幫助」查看更多功能'
+                text: '大家好！我是退休福音小幫手 🌅\n\n我可以幫大家推薦好玩的地方、揪團出遊！\n\n📍 輸入「今日推薦」看看今天適合去哪\n👥 輸入「揪團」找人一起出遊\n🌍 輸入「日本5天」AI幫你規劃行程\n❓ 輸入「幫助」查看更多功能'
             }]
         });
     } catch (error) {
@@ -915,7 +842,6 @@ async function handleJoin(event, client) {
 async function handleLeave(event, client) {
     const sourceType = event.source.type;
     const sourceId = sourceType === 'group' ? event.source.groupId : event.source.roomId;
-    
     logger.info(`Bot left ${sourceType}: ${sourceId}`);
 }
 
@@ -937,9 +863,6 @@ async function handleAccountLink(event, client) {
     logger.info(`Account link event: ${event.link.result}`);
 }
 
-// ============================================
-// 匯出
-// ============================================
 module.exports = {
     handleFollow,
     handleUnfollow,

@@ -1287,6 +1287,162 @@ function buildAITourResults(tours, userQuery) {
 // ============================================
 // 匯出
 // ============================================
+/**
+ * 建立 AI 行程結果卡片
+ */
+function buildAITourResults(tours, userQuery) {
+    if (!tours || tours.length === 0) {
+        return {
+            type: 'text',
+            text: '抱歉，無法生成行程，請換個方式描述您的需求 🙏'
+        };
+    }
+
+    const bubbles = tours.map((tour, index) => {
+        const itineraryText = (tour.itinerary || []).slice(0, 5).map(day => 
+            `Day${day.day} ${day.title}`
+        ).join('\n');
+
+        const highlightsText = (tour.highlights || []).slice(0, 5).join(' • ');
+
+        const tipsText = (tour.tips || []).slice(0, 3).map(tip => `💡 ${tip}`).join('\n');
+
+        return {
+            type: 'bubble',
+            size: 'giga',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            { type: 'text', text: tour.source || 'AI 推薦', size: 'xs', color: '#ffffff', weight: 'bold' },
+                            { type: 'text', text: `方案 ${index + 1}`, size: 'xs', color: '#ffffff', align: 'end' }
+                        ]
+                    },
+                    {
+                        type: 'text',
+                        text: tour.name || '精選行程',
+                        size: 'xl',
+                        weight: 'bold',
+                        color: '#ffffff',
+                        margin: 'md',
+                        wrap: true
+                    },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            { type: 'text', text: `🌍 ${tour.country || '海外'}`, size: 'sm', color: '#ffffff' },
+                            { type: 'text', text: `📅 ${tour.days || 5} 天`, size: 'sm', color: '#ffffff', margin: 'lg' }
+                        ],
+                        margin: 'md'
+                    }
+                ],
+                backgroundColor: index === 0 ? '#E74C3C' : '#3498DB',
+                paddingAll: 'lg'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '✨ 行程亮點', size: 'md', weight: 'bold', color: '#E74C3C' },
+                    { type: 'text', text: highlightsText || '精彩景點等你探索', size: 'sm', color: '#666666', margin: 'sm', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '📋 每日行程', size: 'md', weight: 'bold', color: '#E74C3C', margin: 'lg' },
+                    { type: 'text', text: itineraryText || '精彩行程規劃中', size: 'sm', color: '#666666', margin: 'sm', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '💰 預估費用', size: 'xs', color: '#999999' },
+                                    {
+                                        type: 'text',
+                                        text: tour.estimatedCost 
+                                            ? `$${Math.round(tour.estimatedCost.min/1000)}K - $${Math.round(tour.estimatedCost.max/1000)}K`
+                                            : '$30K - $50K',
+                                        size: 'lg',
+                                        weight: 'bold',
+                                        color: '#E74C3C'
+                                    }
+                                ],
+                                flex: 1
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🗓️ 最佳季節', size: 'xs', color: '#999999' },
+                                    { type: 'text', text: tour.bestSeason || '全年皆宜', size: 'sm', weight: 'bold', color: '#333333' }
+                                ],
+                                flex: 1
+                            }
+                        ],
+                        margin: 'lg'
+                    },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '📝 小提醒', size: 'md', weight: 'bold', color: '#E74C3C', margin: 'lg' },
+                    { type: 'text', text: tipsText || '💡 記得帶護照\n💡 換好當地貨幣', size: 'xs', color: '#888888', margin: 'sm', wrap: true }
+                ],
+                paddingAll: 'lg'
+            },
+            footer: {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                    {
+                        type: 'button',
+                        action: { type: 'postback', label: '📋 詳細行程', data: `action=view_tour_detail&id=${tour.id}` },
+                        style: 'primary',
+                        color: '#E74C3C',
+                        flex: 1
+                    },
+                    {
+                        type: 'button',
+                        action: { type: 'postback', label: '❤️ 收藏', data: `action=save_tour&id=${tour.id}` },
+                        style: 'secondary',
+                        flex: 1,
+                        margin: 'sm'
+                    }
+                ],
+                paddingAll: 'md'
+            }
+        };
+    });
+
+    bubbles.push({
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                { type: 'text', text: '💡 小提示', size: 'lg', weight: 'bold', color: '#E74C3C' },
+                { type: 'text', text: '您可以更詳細描述需求：\n\n• 「日本7天 想賞櫻」\n• 「韓國4天 預算3萬」\n• 「泰國親子遊 5天」\n• 「歐洲蜜月10天」', size: 'sm', color: '#666666', margin: 'lg', wrap: true },
+                {
+                    type: 'button',
+                    action: { type: 'message', label: '🔄 重新規劃', text: '重新規劃行程' },
+                    style: 'secondary',
+                    margin: 'lg'
+                }
+            ],
+            paddingAll: 'lg'
+        }
+    });
+
+    return {
+        type: 'flex',
+        altText: `🌍 AI 為您規劃了 ${tours.length} 個行程方案`,
+        contents: { type: 'carousel', contents: bubbles }
+    };
+}
 module.exports = {
 	buildAITourResults,
     buildDailyRecommendations,
