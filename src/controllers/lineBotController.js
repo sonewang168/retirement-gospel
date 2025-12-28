@@ -155,13 +155,31 @@ async function handleKeywordMessage(text, user, client) {
     }
 
     // ============================================
-    // 天氣查詢
+    // 天氣查詢（支援全球城市）
     // ============================================
     if (matchKeywords(lowerText, ['天氣', '氣象', '會下雨', '溫度'])) {
-        const weather = await recommendationService.getWeatherInfo(user.city, user.district);
+        // 嘗試從訊息中提取城市名稱
+        const weatherService = require('../services/weatherService');
+        const supportedCities = weatherService.getSupportedCities();
+        
+        let targetCity = null;
+        
+        // 檢查訊息中是否包含支援的城市名稱
+        for (const city of supportedCities) {
+            if (text.includes(city)) {
+                targetCity = city;
+                break;
+            }
+        }
+        
+        // 如果沒有指定城市，使用用戶預設城市
+        if (!targetCity) {
+            targetCity = user.city || '高雄市';
+        }
+        
+        const weather = await weatherService.getCompleteWeatherInfo(targetCity);
         return flexMessageBuilder.buildWeatherCard(weather);
     }
-
     // ============================================
     // 空氣品質
     // ============================================
