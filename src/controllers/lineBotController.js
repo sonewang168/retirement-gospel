@@ -62,8 +62,23 @@ async function handleTextMessage(event, client) {
 async function handleKeywordMessage(text, user, client, event) {
     var lowerText = text.toLowerCase();
 
-    // 出國旅遊
-    if (matchKeywords(lowerText, ['出國', '旅遊', '日遊', '自由行', '跟團', '行程', '旅行', '日本', '韓國', '泰國', '越南', '新加坡', '歐洲', '美國', '澳洲'])) {
+    // ========== 我的行程（放最前面！）==========
+    if (lowerText.includes('我的行程') || lowerText.includes('我的收藏') || lowerText === '收藏') {
+        logger.info('Getting user tour plans...');
+        var plans = await tourPlanService.getUserTourPlans(user.id);
+        logger.info('Found plans: ' + plans.length);
+        
+        if (plans.length === 0) {
+            return { type: 'text', text: '📋 還沒有收藏行程\n\n輸入「日本5天」讓AI規劃！' };
+        }
+        var list = plans.slice(0, 5).map(function(p, idx) {
+            return (idx + 1) + '. 🌍 ' + p.name + '\n   ' + p.country + ' ' + p.days + '天 | ' + p.source;
+        }).join('\n\n');
+        return { type: 'text', text: '📋 我的收藏行程\n\n' + list + '\n\n💡 輸入「日本5天」繼續規劃' };
+    }
+
+    // ========== 出國旅遊 ==========
+    if (matchKeywords(lowerText, ['出國', '旅遊', '日遊', '自由行', '跟團', '旅行', '日本', '韓國', '泰國', '越南', '新加坡', '歐洲', '美國', '澳洲'])) {
         var aiTourService = require('../services/aiTourService');
         
         setTimeout(async function() {
@@ -72,16 +87,12 @@ async function handleKeywordMessage(text, user, client, event) {
                 
                 for (var i = 0; i < tours.length; i++) {
                     var tour = tours[i];
-                    
-                    // 存到資料庫
                     var dbId = await tourPlanService.saveTourToDb(user.id, tour);
                     
-                    // 建立行程文字
                     var itineraryText = (tour.itinerary || []).map(function(d) {
                         return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
                     }).join('\n\n');
                     
-                    // Flex Message 含收藏按鈕
                     var flexMessage = {
                         type: 'flex',
                         altText: '【方案' + (i + 1) + '】' + (tour.name || '精彩行程'),
@@ -151,25 +162,13 @@ async function handleKeywordMessage(text, user, client, event) {
         return { type: 'text', text: '🤖 AI 正在規劃行程...\n⏳ 請稍候約 10 秒\n（ChatGPT + Gemini 雙引擎）' };
     }
 
-    // 我的行程
-    if (matchKeywords(lowerText, ['我的行程', '收藏', '我的收藏'])) {
-        var plans = await tourPlanService.getUserTourPlans(user.id);
-        if (plans.length === 0) {
-            return { type: 'text', text: '📋 還沒有收藏行程\n\n輸入「日本5天」讓AI規劃！' };
-        }
-        var list = plans.slice(0, 5).map(function(p, idx) {
-            return (idx + 1) + '. 🌍 ' + p.name + '\n   ' + p.country + ' ' + p.days + '天';
-        }).join('\n\n');
-        return { type: 'text', text: '📋 我的收藏\n\n' + list };
-    }
-
-    // 今日推薦
+    // ========== 今日推薦 ==========
     if (matchKeywords(lowerText, ['今日推薦', '推薦'])) {
         var recs = await recommendationService.getDailyRecommendations(user);
         return flexMessageBuilder.buildDailyRecommendations(recs, user);
     }
 
-    // 天氣
+    // ========== 天氣 ==========
     if (matchKeywords(lowerText, ['天氣', '氣象', '下雨', '溫度'])) {
         var weatherService = require('../services/weatherService');
         var cities = weatherService.getSupportedCities();
@@ -181,17 +180,17 @@ async function handleKeywordMessage(text, user, client, event) {
         return flexMessageBuilder.buildWeatherCard(weather);
     }
 
-    // 打招呼
+    // ========== 打招呼 ==========
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         return { type: 'text', text: '您好！😊\n\n🌍 輸入「日本5天」AI規劃行程\n📋 輸入「我的行程」查看收藏' };
     }
 
-    // 幫助
+    // ========== 幫助 ==========
     if (matchKeywords(lowerText, ['幫助', '說明', 'help', '?', '？'])) {
         return flexMessageBuilder.buildHelpMenu();
     }
 
-    // 預設
+    // ========== 預設 ==========
     return { type: 'text', text: '試試：\n🌍 日本5天\n📋 我的行程\n💡 今日推薦' };
 }
 
