@@ -392,6 +392,167 @@ function buildCityPickerMenu() {
     };
 }
 
+function buildWeatherCard(weather) {
+    if (!weather) {
+        return { type: 'text', text: '❓ 無法取得天氣資訊，請稍後再試' };
+    }
+    
+    if (weather.error) {
+        return { 
+            type: 'text', 
+            text: weather.errorMessage || '❓ 無法取得天氣資訊，請稍後再試' 
+        };
+    }
+
+    // 建立未來預報區塊
+    var forecastBoxes = [];
+    if (weather.forecast && weather.forecast.length > 0) {
+        forecastBoxes = weather.forecast.map(function(day) {
+            return {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '週' + day.dayName, size: 'xs', color: '#888888', align: 'center' },
+                    { type: 'text', text: day.dateStr || '', size: 'xxs', color: '#AAAAAA', align: 'center' },
+                    { type: 'text', text: day.emoji, size: 'xl', align: 'center', margin: 'sm' },
+                    { type: 'text', text: day.temp + '°', size: 'md', color: '#333333', align: 'center', weight: 'bold' },
+                    { type: 'text', text: '💧' + day.pop + '%', size: 'xxs', color: '#3498DB', align: 'center' }
+                ],
+                flex: 1
+            };
+        });
+    }
+
+    // 活動建議文字
+    var adviceText = (weather.advice || ['適合出遊']).join('\n');
+
+    // 風向文字
+    var windText = weather.windSpeed + ' m/s';
+    if (weather.windDir) {
+        windText = weather.windDir + '風 ' + weather.windSpeed + ' m/s';
+    }
+
+    return {
+        type: 'flex',
+        altText: weather.city + ' 天氣 ' + weather.temp + '°C ' + weather.description,
+        contents: {
+            type: 'bubble',
+            size: 'giga',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            { type: 'text', text: weather.emoji, size: '4xl', flex: 0 },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: weather.city, size: 'xl', color: '#ffffff', weight: 'bold' },
+                                    { type: 'text', text: weather.description, size: 'md', color: '#ffffff' }
+                                ],
+                                margin: 'lg',
+                                flex: 1
+                            }
+                        ]
+                    },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            {
+                                type: 'box',
+                                layout: 'baseline',
+                                contents: [
+                                    { type: 'text', text: String(weather.temp), size: '5xl', color: '#ffffff', weight: 'bold', flex: 0 },
+                                    { type: 'text', text: '°C', size: 'xl', color: '#ffffff', flex: 0 }
+                                ],
+                                flex: 1
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '體感 ' + weather.feelsLike + '°C', size: 'sm', color: '#ffffff' },
+                                    { type: 'text', text: '↑' + (weather.tempMax || weather.temp) + '° ↓' + (weather.tempMin || weather.temp) + '°', size: 'sm', color: '#ffffff' }
+                                ],
+                                flex: 1
+                            }
+                        ],
+                        margin: 'lg'
+                    }
+                ],
+                backgroundColor: '#3498DB',
+                paddingAll: 'xl'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '💧 濕度', size: 'xs', color: '#888888' },
+                                    { type: 'text', text: weather.humidity + '%', size: 'md', color: '#333333', weight: 'bold' }
+                                ],
+                                flex: 1
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌬️ 風', size: 'xs', color: '#888888' },
+                                    { type: 'text', text: windText, size: 'sm', color: '#333333', weight: 'bold' }
+                                ],
+                                flex: 1
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌅 日出', size: 'xs', color: '#888888' },
+                                    { type: 'text', text: weather.sunrise || '--', size: 'md', color: '#333333', weight: 'bold' }
+                                ],
+                                flex: 1
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌇 日落', size: 'xs', color: '#888888' },
+                                    { type: 'text', text: weather.sunset || '--', size: 'md', color: '#333333', weight: 'bold' }
+                                ],
+                                flex: 1
+                            }
+                        ]
+                    },
+                    { type: 'separator', margin: 'xl' },
+                    { type: 'text', text: '📅 未來 4 天預報', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'xl' },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: forecastBoxes.length > 0 ? forecastBoxes : [{ type: 'text', text: '無預報資料', size: 'sm', color: '#888888' }],
+                        margin: 'md'
+                    },
+                    { type: 'separator', margin: 'xl' },
+                    { type: 'text', text: '💡 活動建議', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'xl' },
+                    { type: 'text', text: adviceText, size: 'sm', color: '#666666', wrap: true, margin: 'md' },
+                    { type: 'text', text: '更新：' + (weather.updateTime || '--'), size: 'xxs', color: '#AAAAAA', margin: 'xl', align: 'end' }
+                ],
+                paddingAll: 'xl'
+            }
+        }
+    };
+}
+
 function buildHealthMenu(user) {
     return {
         type: 'flex',
@@ -512,59 +673,6 @@ function buildCommunityList() {
     };
 }
 
-function buildWeatherCard(weather) {
-    if (!weather) {
-        return { type: 'text', text: '無法取得天氣資訊' };
-    }
-
-    var emoji = '☀️';
-    var desc = weather.description || '晴天';
-    if (desc.includes('雨')) emoji = '🌧️';
-    else if (desc.includes('雲') || desc.includes('陰')) emoji = '☁️';
-    else if (desc.includes('晴')) emoji = '☀️';
-
-    return {
-        type: 'flex',
-        altText: weather.city + ' 天氣',
-        contents: {
-            type: 'bubble',
-            header: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    { type: 'text', text: emoji + ' ' + (weather.city || '天氣'), weight: 'bold', size: 'lg', color: '#ffffff' },
-                    { type: 'text', text: desc, size: 'sm', color: '#ffffff', margin: 'sm' }
-                ],
-                backgroundColor: '#3498DB',
-                paddingAll: 'lg'
-            },
-            body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    { type: 'box', layout: 'horizontal', contents: [
-                        { type: 'text', text: '🌡️ 溫度', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: (weather.temp || '--') + '°C', size: 'sm', color: '#333333', flex: 3, weight: 'bold' }
-                    ]},
-                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-                        { type: 'text', text: '🤒 體感', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: (weather.feelsLike || '--') + '°C', size: 'sm', color: '#333333', flex: 3 }
-                    ]},
-                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-                        { type: 'text', text: '💧 濕度', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: (weather.humidity || '--') + '%', size: 'sm', color: '#333333', flex: 3 }
-                    ]},
-                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-                        { type: 'text', text: '🌬️ 風速', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: (weather.windSpeed || '--') + ' m/s', size: 'sm', color: '#333333', flex: 3 }
-                    ]}
-                ],
-                paddingAll: 'lg'
-            }
-        }
-    };
-}
-
 function buildHelpMenu() {
     return {
         type: 'flex',
@@ -592,7 +700,7 @@ function buildHelpMenu() {
                     { type: 'text', text: '查看、分享、下載PDF', size: 'sm', color: '#666666', margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '☁️ 天氣查詢', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                    { type: 'text', text: '輸入「天氣」或「東京天氣」', size: 'sm', color: '#666666', margin: 'sm' },
+                    { type: 'text', text: '輸入「天氣」或「東京天氣」\n支援全球 200+ 城市', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '💡 今日推薦', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
                     { type: 'text', text: '每日精選活動推薦', size: 'sm', color: '#666666', margin: 'sm' },
@@ -686,10 +794,10 @@ module.exports = {
     buildSettingsMenu: buildSettingsMenu,
     buildTimePickerMenu: buildTimePickerMenu,
     buildCityPickerMenu: buildCityPickerMenu,
+    buildWeatherCard: buildWeatherCard,
     buildHealthMenu: buildHealthMenu,
     buildFamilyMenu: buildFamilyMenu,
     buildCommunityList: buildCommunityList,
-    buildWeatherCard: buildWeatherCard,
     buildHelpMenu: buildHelpMenu,
     buildQuickActions: buildQuickActions,
     buildOnboardingStart: buildOnboardingStart,
