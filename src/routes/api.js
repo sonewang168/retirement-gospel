@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
 const userService = require('../services/userService');
 const recommendationService = require('../services/recommendationService');
 const groupService = require('../services/groupService');
-const { User, Activity, Event, Group, Community, TourPlan } = require('../models');
+const { User, Activity, Event, Group, Community, TourPlan, HealthReminder } = require('../models');
 
 // ============================================
 // 中間件
@@ -26,7 +26,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
         req.user = await User.findByPk(decoded.userId);
         
         if (!req.user) {
@@ -48,72 +48,24 @@ const validate = (req, res, next) => {
 };
 
 // ============================================
-// 資料庫修正 API（重建 activities 表）
+// 資料庫修正 API（完整同步所有表）
 // ============================================
 
 router.get('/fix-db', async (req, res) => {
     try {
         const { sequelize } = require('../models');
         
-        logger.info('開始修正資料庫...');
+        logger.info('開始同步所有資料庫結構...');
         
-        // 步驟 1: 刪除 activities 表
-        await sequelize.query('DROP TABLE IF EXISTS activities CASCADE;');
-        logger.info('已刪除舊的 activities 表');
+        // 同步所有表結構（會自動新增缺少的欄位）
+        await sequelize.sync({ alter: true });
         
-        // 步驟 2: 刪除舊的 ENUM 類型
-        await sequelize.query('DROP TYPE IF EXISTS enum_activities_category;').catch(() => {});
-        await sequelize.query('DROP TYPE IF EXISTS "enum_activities_difficulty_level";').catch(() => {});
-        logger.info('已刪除舊的 ENUM 類型');
+        logger.info('所有資料庫表同步完成');
         
-        // 步驟 3: 建立新的 activities 表（使用 VARCHAR）
-        await sequelize.query(`
-            CREATE TABLE activities (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(200) NOT NULL,
-                description TEXT,
-                short_description VARCHAR(500),
-                category VARCHAR(50) NOT NULL,
-                subcategory VARCHAR(50),
-                city VARCHAR(50),
-                district VARCHAR(50),
-                address VARCHAR(500),
-                latitude DECIMAL(10,8),
-                longitude DECIMAL(11,8),
-                difficulty_level VARCHAR(20) DEFAULT 'easy',
-                estimated_duration INTEGER,
-                cost_min INTEGER DEFAULT 0,
-                cost_max INTEGER DEFAULT 0,
-                cost_description VARCHAR(200),
-                opening_hours JSONB,
-                contact_phone VARCHAR(20),
-                website VARCHAR(500),
-                is_indoor BOOLEAN DEFAULT false,
-                is_accessible BOOLEAN DEFAULT true,
-                accessibility_info TEXT,
-                parking_available BOOLEAN DEFAULT false,
-                public_transit_info TEXT,
-                best_weather VARCHAR(50)[] DEFAULT ARRAY['sunny', 'cloudy']::VARCHAR[],
-                best_season VARCHAR(50)[] DEFAULT ARRAY['spring', 'autumn']::VARCHAR[],
-                min_aqi_required INTEGER DEFAULT 0,
-                images VARCHAR(500)[] DEFAULT ARRAY[]::VARCHAR[],
-                thumbnail_url VARCHAR(500),
-                tags VARCHAR(100)[] DEFAULT ARRAY[]::VARCHAR[],
-                rating DECIMAL(2,1) DEFAULT 4.0,
-                review_count INTEGER DEFAULT 0,
-                visit_count INTEGER DEFAULT 0,
-                is_featured BOOLEAN DEFAULT false,
-                is_active BOOLEAN DEFAULT true,
-                source VARCHAR(100),
-                source_url VARCHAR(500),
-                last_verified_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-            );
-        `);
-        logger.info('已建立新的 activities 表');
-        
-        res.json({ success: true, message: 'activities 表已重建完成！請執行 /api/seed?force=true 匯入資料' });
+        res.json({ 
+            success: true, 
+            message: '所有資料庫結構已同步完成！包含 users, activities, tour_plans, health_reminders 等表' 
+        });
     } catch (error) {
         logger.error('Fix DB error:', error);
         res.json({ success: false, error: error.message });
@@ -171,6 +123,7 @@ router.get('/tour/:id/pdf', async (req, res) => {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (error) {
+        logger.error('PDF export error:', error);
         res.status(500).send('<h1>匯出失敗</h1>');
     }
 });
@@ -226,9 +179,10 @@ router.post('/auth/line', [
             });
         }
 
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ token, user: { id: user.id, displayName: user.displayName } });
     } catch (error) {
+        logger.error('Auth error:', error);
         res.status(500).json({ error: '登入失敗' });
     }
 });
@@ -242,6 +196,16 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
         res.json(req.user);
     } catch (error) {
         res.status(500).json({ error: '取得失敗' });
+    }
+});
+
+router.put('/user/profile', authenticateToken, async (req, res) => {
+    try {
+        const { city, district, interests, notificationEnabled, morningPushTime } = req.body;
+        await req.user.update({ city, district, interests, notificationEnabled, morningPushTime });
+        res.json({ success: true, user: req.user });
+    } catch (error) {
+        res.status(500).json({ error: '更新失敗' });
     }
 });
 
@@ -265,16 +229,5 @@ router.get('/activities', async (req, res) => {
 
         res.json({ data: activities.rows, total: activities.count });
     } catch (error) {
+        logger.error('Activities error:', error);
         res.status(500).json({ error: '取得失敗' });
-    }
-});
-
-// ============================================
-// 健康狀態 API
-// ============================================
-
-router.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-module.exports = router;
