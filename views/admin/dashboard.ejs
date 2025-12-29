@@ -20,8 +20,43 @@
             padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
         }
+        * { outline: none; }
         @media (display-mode: standalone) {
             .pwa-hint { display: none !important; }
+        }
+        .stats-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .stats-card:active {
+            transform: scale(0.98);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -40,32 +75,37 @@
     </div>
 
     <div class="container mx-auto p-4">
-        <!-- 統計卡片 -->
+        <!-- 統計卡片（可點擊） -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-            <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
+            <div class="stats-card bg-white rounded-xl shadow p-4 border-l-4 border-blue-500" onclick="showUsers()">
                 <p class="text-gray-500 text-xs">用戶數</p>
                 <p class="text-2xl font-bold text-gray-800"><%= stats.users %></p>
                 <p class="text-lg">👥</p>
+                <p class="text-xs text-blue-500 mt-1">點擊查看 →</p>
             </div>
-            <div class="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
+            <div class="stats-card bg-white rounded-xl shadow p-4 border-l-4 border-green-500" onclick="showActivities()">
                 <p class="text-gray-500 text-xs">活動數</p>
                 <p class="text-2xl font-bold text-gray-800"><%= stats.activities %></p>
                 <p class="text-lg">🎯</p>
+                <p class="text-xs text-green-500 mt-1">點擊查看 →</p>
             </div>
-            <div class="bg-white rounded-xl shadow p-4 border-l-4 border-yellow-500">
+            <div class="stats-card bg-white rounded-xl shadow p-4 border-l-4 border-yellow-500" onclick="showTours()">
                 <p class="text-gray-500 text-xs">AI行程</p>
                 <p class="text-2xl font-bold text-gray-800"><%= stats.tours %></p>
                 <p class="text-lg">🌍</p>
+                <p class="text-xs text-yellow-500 mt-1">點擊查看 →</p>
             </div>
-            <div class="bg-white rounded-xl shadow p-4 border-l-4 border-purple-500">
+            <div class="stats-card bg-white rounded-xl shadow p-4 border-l-4 border-purple-500" onclick="showReminders()">
                 <p class="text-gray-500 text-xs">健康提醒</p>
                 <p class="text-2xl font-bold text-gray-800"><%= stats.reminders %></p>
                 <p class="text-lg">💊</p>
+                <p class="text-xs text-purple-500 mt-1">點擊查看 →</p>
             </div>
-            <div class="bg-white rounded-xl shadow p-4 border-l-4 border-pink-500">
+            <div class="stats-card bg-white rounded-xl shadow p-4 border-l-4 border-pink-500" onclick="showWishlists()">
                 <p class="text-gray-500 text-xs">想去收藏</p>
                 <p class="text-2xl font-bold text-gray-800"><%= stats.wishlists %></p>
                 <p class="text-lg">❤️</p>
+                <p class="text-xs text-pink-500 mt-1">點擊查看 →</p>
             </div>
         </div>
 
@@ -184,7 +224,6 @@
                         📋 複製連結
                     </button>
                 </div>
-                <p class="text-xs text-gray-400" id="linkText">https://line.me/R/ti/p/@024wclps</p>
             </div>
         </div>
 
@@ -205,6 +244,19 @@
         </p>
     </footer>
 
+    <!-- Modal 彈窗 -->
+    <div id="modal" class="modal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="modalTitle" class="text-lg font-bold">標題</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div id="modalBody" class="p-4">
+                載入中...
+            </div>
+        </div>
+    </div>
+
     <script>
         // 更新時間
         function updateTime() {
@@ -220,6 +272,160 @@
             d.textContent = '[' + new Date().toLocaleTimeString('zh-TW') + '] ' + msg;
             c.appendChild(d);
             c.scrollTop = c.scrollHeight;
+        }
+
+        // Modal 控制
+        function openModal(title, content) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').innerHTML = content;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal(e) {
+            if (!e || e.target.id === 'modal') {
+                document.getElementById('modal').classList.remove('active');
+            }
+        }
+
+        // 顯示用戶列表
+        async function showUsers() {
+            addLog('載入用戶列表...');
+            openModal('👥 用戶列表', '<p class="text-center text-gray-500">載入中...</p>');
+            try {
+                var r = await fetch('/api/admin/users');
+                var d = await r.json();
+                var html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
+                html += '<thead><tr class="border-b bg-gray-50"><th class="p-2 text-left">名稱</th><th class="p-2 text-left">城市</th><th class="p-2 text-left">推播</th><th class="p-2 text-left">加入</th></tr></thead><tbody>';
+                if (d.data && d.data.length > 0) {
+                    d.data.forEach(function(u) {
+                        html += '<tr class="border-b"><td class="p-2">' + (u.displayName || '用戶') + '</td>';
+                        html += '<td class="p-2">' + (u.city || '-') + '</td>';
+                        html += '<td class="p-2">' + (u.notificationEnabled ? '✅' : '❌') + '</td>';
+                        html += '<td class="p-2">' + new Date(u.createdAt).toLocaleDateString('zh-TW') + '</td></tr>';
+                    });
+                } else {
+                    html += '<tr><td colspan="4" class="p-4 text-center text-gray-500">尚無用戶</td></tr>';
+                }
+                html += '</tbody></table></div>';
+                openModal('👥 用戶列表 (' + (d.data ? d.data.length : 0) + ')', html);
+                addLog('用戶列表載入完成');
+            } catch (e) {
+                openModal('👥 用戶列表', '<p class="text-red-500">載入失敗：' + e.message + '</p>');
+                addLog('錯誤: ' + e.message);
+            }
+        }
+
+        // 顯示活動列表
+        async function showActivities() {
+            addLog('載入活動列表...');
+            openModal('🎯 活動列表', '<p class="text-center text-gray-500">載入中...</p>');
+            try {
+                var r = await fetch('/api/activities?limit=50');
+                var d = await r.json();
+                var html = '<div class="space-y-2">';
+                if (d.data && d.data.length > 0) {
+                    d.data.forEach(function(a) {
+                        html += '<div class="p-3 bg-gray-50 rounded-lg">';
+                        html += '<p class="font-bold">' + a.name + '</p>';
+                        html += '<p class="text-sm text-gray-500">📍 ' + (a.city || '') + ' | ⭐ ' + (a.rating || 4.5) + '</p>';
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p class="text-center text-gray-500">尚無活動</p>';
+                }
+                html += '</div>';
+                openModal('🎯 活動列表 (' + (d.total || 0) + ')', html);
+                addLog('活動列表載入完成');
+            } catch (e) {
+                openModal('🎯 活動列表', '<p class="text-red-500">載入失敗：' + e.message + '</p>');
+                addLog('錯誤: ' + e.message);
+            }
+        }
+
+        // 顯示行程列表
+        async function showTours() {
+            addLog('載入AI行程...');
+            openModal('🌍 AI行程', '<p class="text-center text-gray-500">載入中...</p>');
+            try {
+                var r = await fetch('/api/admin/tours');
+                var d = await r.json();
+                var html = '<div class="space-y-2">';
+                if (d.data && d.data.length > 0) {
+                    d.data.forEach(function(t) {
+                        html += '<div class="p-3 bg-gray-50 rounded-lg">';
+                        html += '<p class="font-bold">' + t.name + '</p>';
+                        html += '<p class="text-sm text-gray-500">📍 ' + (t.country || '') + ' | 📅 ' + (t.days || 5) + '天</p>';
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p class="text-center text-gray-500">尚無行程</p>';
+                }
+                html += '</div>';
+                openModal('🌍 AI行程 (' + (d.data ? d.data.length : 0) + ')', html);
+                addLog('AI行程載入完成');
+            } catch (e) {
+                openModal('🌍 AI行程', '<p class="text-red-500">載入失敗：' + e.message + '</p>');
+                addLog('錯誤: ' + e.message);
+            }
+        }
+
+        // 顯示健康提醒
+        async function showReminders() {
+            addLog('載入健康提醒...');
+            openModal('💊 健康提醒', '<p class="text-center text-gray-500">載入中...</p>');
+            try {
+                var r = await fetch('/api/admin/reminders');
+                var d = await r.json();
+                var html = '<div class="space-y-2">';
+                if (d.data && d.data.length > 0) {
+                    d.data.forEach(function(h) {
+                        var icon = h.type === 'appointment' ? '🏥' : '💊';
+                        html += '<div class="p-3 bg-gray-50 rounded-lg">';
+                        html += '<p class="font-bold">' + icon + ' ' + h.title + '</p>';
+                        if (h.type === 'appointment') {
+                            html += '<p class="text-sm text-gray-500">' + (h.hospitalName || '') + ' | ' + (h.appointmentDate || '') + '</p>';
+                        } else {
+                            html += '<p class="text-sm text-gray-500">' + (h.medicationName || '') + '</p>';
+                        }
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p class="text-center text-gray-500">尚無提醒</p>';
+                }
+                html += '</div>';
+                openModal('💊 健康提醒 (' + (d.data ? d.data.length : 0) + ')', html);
+                addLog('健康提醒載入完成');
+            } catch (e) {
+                openModal('💊 健康提醒', '<p class="text-red-500">載入失敗：' + e.message + '</p>');
+                addLog('錯誤: ' + e.message);
+            }
+        }
+
+        // 顯示想去收藏
+        async function showWishlists() {
+            addLog('載入想去收藏...');
+            openModal('❤️ 想去收藏', '<p class="text-center text-gray-500">載入中...</p>');
+            try {
+                var r = await fetch('/api/admin/wishlists');
+                var d = await r.json();
+                var html = '<div class="space-y-2">';
+                if (d.data && d.data.length > 0) {
+                    d.data.forEach(function(w) {
+                        html += '<div class="p-3 bg-gray-50 rounded-lg">';
+                        html += '<p class="font-bold">' + (w.Activity ? w.Activity.name : '活動') + '</p>';
+                        html += '<p class="text-sm text-gray-500">' + (w.isVisited ? '✅ 已去過' : '📍 想去') + '</p>';
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p class="text-center text-gray-500">尚無收藏</p>';
+                }
+                html += '</div>';
+                openModal('❤️ 想去收藏 (' + (d.data ? d.data.length : 0) + ')', html);
+                addLog('想去收藏載入完成');
+            } catch (e) {
+                openModal('❤️ 想去收藏', '<p class="text-red-500">載入失敗：' + e.message + '</p>');
+                addLog('錯誤: ' + e.message);
+            }
         }
 
         // 重新整理
@@ -242,7 +448,7 @@
 
         // 匯入種子資料
         async function seedData() {
-            if (!confirm('確定要重新匯入種子資料？這會覆蓋現有活動資料。')) return;
+            if (!confirm('確定要重新匯入種子資料？')) return;
             addLog('正在匯入種子資料...');
             try {
                 var r = await fetch('/api/seed?force=true');
@@ -255,16 +461,13 @@
 
         // 複製連結
         function copyLink() {
-            var link = 'https://line.me/R/ti/p/@024wclps';
-            navigator.clipboard.writeText(link).then(function() {
-                addLog('連結已複製到剪貼簿');
+            navigator.clipboard.writeText('https://line.me/R/ti/p/@024wclps').then(function() {
+                addLog('連結已複製');
                 alert('連結已複製！');
-            }).catch(function() {
-                addLog('複製失敗');
             });
         }
 
-        // PWA 安裝後隱藏提示
+        // PWA 檢測
         if (window.matchMedia('(display-mode: standalone)').matches) {
             var hint = document.querySelector('.pwa-hint');
             if (hint) hint.style.display = 'none';

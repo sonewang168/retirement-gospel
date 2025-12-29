@@ -1,14 +1,13 @@
 /**
- * API 路由（完整版）
+ * API 路由（完整版 + 管理API）
  */
-
 const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');
-const { User, Activity, TourPlan, HealthReminder } = require('../models');
+const { User, Activity, TourPlan, HealthReminder, UserWishlist } = require('../models');
 
 // ============================================
-// 資料庫修正 API（強制重建）
+// 資料庫修正 API
 // ============================================
 
 router.get('/fix-db', async (req, res) => {
@@ -16,87 +15,18 @@ router.get('/fix-db', async (req, res) => {
         const { sequelize } = require('../models');
         const force = req.query.force === 'true';
         
-        logger.info('開始同步資料庫結構... force=' + force);
+        logger.info('同步資料庫 force=' + force);
         
         if (force) {
-            // 強制重建所有表（會清除資料）
             await sequelize.sync({ force: true });
-            logger.info('所有資料表已強制重建');
-            res.json({ 
-                success: true, 
-                message: '所有資料表已強制重建！請執行 /api/seed?force=true 匯入活動資料' 
-            });
+            res.json({ success: true, message: '資料表已重建！請執行 /api/seed?force=true' });
         } else {
-            // 嘗試溫和同步
-            try {
-                await sequelize.sync({ alter: true });
-                res.json({ success: true, message: '資料庫結構已同步！' });
-            } catch (alterError) {
-                // 如果 alter 失敗，提示用戶使用 force
-                logger.error('Alter failed:', alterError.message);
-                res.json({ 
-                    success: false, 
-                    message: '欄位類型衝突，請使用 /api/fix-db?force=true 強制重建（注意：會清除資料）',
-                    error: alterError.message
-                });
-            }
+            await sequelize.sync({ alter: true });
+            res.json({ success: true, message: '資料庫已同步！' });
         }
     } catch (error) {
         logger.error('Fix DB error:', error);
         res.json({ success: false, error: error.message });
-    }
-});
-
-// ============================================
-// 行程 PDF 匯出 API
-// ============================================
-
-router.get('/tour/:id/pdf', async (req, res) => {
-    try {
-        var tour = await TourPlan.findByPk(req.params.id);
-        
-        if (!tour) {
-            return res.status(404).send('<h1>找不到此行程</h1>');
-        }
-        
-        var itineraryHtml = '';
-        if (tour.itinerary && Array.isArray(tour.itinerary)) {
-            itineraryHtml = tour.itinerary.map(function(day) {
-                var activities = '';
-                if (day.activities && Array.isArray(day.activities)) {
-                    activities = day.activities.map(function(act) {
-                        return '<li style="margin: 5px 0;">' + act + '</li>';
-                    }).join('');
-                }
-                return '<div style="margin-bottom: 20px;"><h3 style="color: #3498DB;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3><ul style="margin-left: 20px;">' + activities + '</ul></div>';
-            }).join('');
-        }
-        
-        var highlightsHtml = (tour.highlights || []).map(function(h) {
-            return '<span style="background: #FADBD8; color: #E74C3C; padding: 5px 10px; border-radius: 15px; margin: 3px; display: inline-block;">' + h + '</span>';
-        }).join(' ');
-        
-        var tipsHtml = (tour.tips || []).map(function(t) {
-            return '<li style="margin: 5px 0;">' + t + '</li>';
-        }).join('');
-        
-        var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + (tour.name || '行程') + '</title>' +
-            '<style>body{font-family:"Microsoft JhengHei",sans-serif;max-width:800px;margin:0 auto;padding:20px;}' +
-            '.header{background:linear-gradient(135deg,#E74C3C,#C0392B);color:white;padding:30px;border-radius:10px;margin-bottom:20px;}' +
-            '.section{background:white;border:1px solid #eee;border-radius:10px;padding:20px;margin-bottom:20px;}' +
-            'h2{color:#E74C3C;border-bottom:2px solid #E74C3C;padding-bottom:10px;}</style></head><body>' +
-            '<div class="header"><h1>🌍 ' + (tour.name || '精彩行程') + '</h1><p>🏷️ ' + (tour.source || 'AI') + '</p></div>' +
-            '<div class="section"><h2>📋 基本資訊</h2><p>📍 ' + (tour.country || '海外') + ' | 📆 ' + (tour.days || 5) + '天 | 💰 $' + (tour.estimatedCostMin || 30000) + '-$' + (tour.estimatedCostMax || 50000) + '</p></div>' +
-            '<div class="section"><h2>✨ 亮點</h2><div>' + (highlightsHtml || '精彩景點') + '</div></div>' +
-            '<div class="section"><h2>📋 每日行程</h2>' + (itineraryHtml || '<p>精彩行程</p>') + '</div>' +
-            '<div class="section"><h2>💡 提醒</h2><ul>' + (tipsHtml || '<li>祝您旅途愉快</li>') + '</ul></div>' +
-            '<div style="text-align:center;color:#888;margin-top:30px;"><p>🌅 退休福音 | https://line.me/R/ti/p/@024wclps</p></div></body></html>';
-        
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(html);
-    } catch (error) {
-        logger.error('PDF export error:', error);
-        res.status(500).send('<h1>匯出失敗</h1>');
     }
 });
 
@@ -107,13 +37,10 @@ router.get('/tour/:id/pdf', async (req, res) => {
 router.get('/seed', async (req, res) => {
     try {
         const force = req.query.force === 'true';
-        
         const count = await Activity.count();
+        
         if (count > 0 && !force) {
-            return res.json({ 
-                success: true, 
-                message: '資料庫已有 ' + count + ' 筆活動資料。如需重新匯入請加 ?force=true' 
-            });
+            return res.json({ success: true, message: '已有 ' + count + ' 筆活動' });
         }
 
         if (force) {
@@ -123,10 +50,7 @@ router.get('/seed', async (req, res) => {
         const { allActivities } = require('../data/seedActivities');
         const result = await Activity.bulkCreate(allActivities);
         
-        res.json({ 
-            success: true, 
-            message: '成功新增 ' + result.length + ' 筆活動資料' 
-        });
+        res.json({ success: true, message: '成功新增 ' + result.length + ' 筆活動' });
     } catch (error) {
         logger.error('Seed error:', error);
         res.status(500).json({ error: error.message });
@@ -177,6 +101,97 @@ router.get('/activities', async (req, res) => {
     } catch (error) {
         logger.error('Activities error:', error);
         res.status(500).json({ error: '取得失敗' });
+    }
+});
+
+// ============================================
+// 行程 PDF API
+// ============================================
+
+router.get('/tour/:id/pdf', async (req, res) => {
+    try {
+        var tour = await TourPlan.findByPk(req.params.id);
+        if (!tour) return res.status(404).send('<h1>找不到行程</h1>');
+        
+        var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + tour.name + '</title></head><body>';
+        html += '<h1>' + tour.name + '</h1>';
+        html += '<p>' + tour.country + ' | ' + tour.days + '天</p>';
+        html += '</body></html>';
+        
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } catch (error) {
+        res.status(500).send('<h1>錯誤</h1>');
+    }
+});
+
+// ============================================
+// 管理 API（用戶列表）
+// ============================================
+
+router.get('/admin/users', async (req, res) => {
+    try {
+        const users = await User.findAll({
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ data: users });
+    } catch (error) {
+        logger.error('Admin users error:', error);
+        res.json({ data: [] });
+    }
+});
+
+// ============================================
+// 管理 API（行程列表）
+// ============================================
+
+router.get('/admin/tours', async (req, res) => {
+    try {
+        const tours = await TourPlan.findAll({
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ data: tours });
+    } catch (error) {
+        logger.error('Admin tours error:', error);
+        res.json({ data: [] });
+    }
+});
+
+// ============================================
+// 管理 API（健康提醒）
+// ============================================
+
+router.get('/admin/reminders', async (req, res) => {
+    try {
+        const reminders = await HealthReminder.findAll({
+            where: { isActive: true },
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ data: reminders });
+    } catch (error) {
+        logger.error('Admin reminders error:', error);
+        res.json({ data: [] });
+    }
+});
+
+// ============================================
+// 管理 API（想去收藏）
+// ============================================
+
+router.get('/admin/wishlists', async (req, res) => {
+    try {
+        const wishlists = await UserWishlist.findAll({
+            include: [{ model: Activity }],
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ data: wishlists });
+    } catch (error) {
+        logger.error('Admin wishlists error:', error);
+        res.json({ data: [] });
     }
 });
 
