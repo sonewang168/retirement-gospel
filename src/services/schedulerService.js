@@ -1,5 +1,5 @@
 /**
- * 排程服務（修正時區版）
+ * 排程服務（修正版）
  */
 const cron = require('node-cron');
 const logger = require('../utils/logger');
@@ -11,7 +11,8 @@ class SchedulerService {
         this.lineClient = null;
     }
 
-    init(lineClient) {
+    // 改名為 initScheduler（與 app.js 匹配）
+    initScheduler(lineClient) {
         this.lineClient = lineClient;
         this.startAllJobs();
         logger.info('✅ 排程服務啟動完成');
@@ -34,7 +35,6 @@ class SchedulerService {
     // 取得台灣時間
     getTaiwanTime() {
         var now = new Date();
-        // UTC+8
         var taiwanTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
         return taiwanTime;
     }
@@ -61,7 +61,6 @@ class SchedulerService {
             var currentMinute = taiwanTime.getUTCMinutes();
             var currentTimeStr = String(currentHour).padStart(2, '0') + ':' + String(currentMinute).padStart(2, '0');
 
-            // 找出設定這個時間推播的用戶
             var users = await User.findAll({
                 where: {
                     notificationEnabled: true,
@@ -86,7 +85,6 @@ class SchedulerService {
             var displayName = user.displayName || '朋友';
             var city = user.city || '高雄市';
 
-            // 取得天氣
             var weather = await weatherService.getWeather(city);
             var weatherText = '';
             var advice = '';
@@ -101,7 +99,6 @@ class SchedulerService {
                 }
             }
 
-            // 取得今日推薦活動
             var activities = await Activity.findAll({
                 where: { isActive: true },
                 order: [['rating', 'DESC']],
@@ -155,22 +152,18 @@ class SchedulerService {
 
             var alerts = [];
 
-            // 高溫警報
             if (weather.temp >= 35) {
                 alerts.push('🔥 高溫警報：今日氣溫高達 ' + weather.temp + '°C，請注意防曬補水！');
             }
 
-            // 低溫警報
             if (weather.temp <= 10) {
                 alerts.push('🥶 低溫警報：今日氣溫僅 ' + weather.temp + '°C，請注意保暖！');
             }
 
-            // 下雨警報
             if (weather.description && (weather.description.includes('雨') || weather.description.includes('Rain'))) {
                 alerts.push('🌧️ 降雨提醒：今日有降雨機會，出門記得帶傘！');
             }
 
-            // 發送警報
             if (alerts.length > 0) {
                 var message = '⚠️ 天氣提醒\n\n' + alerts.join('\n\n');
                 await this.lineClient.pushMessage(user.lineUserId, {
