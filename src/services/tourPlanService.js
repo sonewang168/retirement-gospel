@@ -59,13 +59,30 @@ async function getUserTourPlans(userId) {
 async function deleteTourPlan(tourPlanId, userId) {
     try {
         const { TourPlan } = require('../models');
-        var result = await TourPlan.destroy({
-            where: { id: tourPlanId, userId: userId }
+        
+        logger.info('Deleting tour: ' + tourPlanId + ' for user: ' + userId);
+        
+        // 方法1：直接用 destroy 帶 where
+        var deleted = await TourPlan.destroy({
+            where: { 
+                id: tourPlanId, 
+                userId: userId 
+            }
         });
-        logger.info('Tour deleted: ' + tourPlanId + ', result: ' + result);
-        return result > 0;
+        
+        logger.info('Delete result: ' + deleted);
+        
+        if (deleted > 0) {
+            logger.info('Tour deleted successfully: ' + tourPlanId);
+            return true;
+        } else {
+            logger.warn('Tour not found or not deleted: ' + tourPlanId);
+            return false;
+        }
+        
     } catch (error) {
         logger.error('Delete tour error: ' + error.message);
+        logger.error('Stack: ' + error.stack);
         return false;
     }
 }
