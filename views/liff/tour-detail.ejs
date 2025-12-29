@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - 退休福音</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .gradient-header { background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <div class="gradient-header text-white p-4 sticky top-0 z-10">
+        <h1 class="text-xl font-bold">🌍 <%= tour.name %></h1>
+        <p class="text-sm opacity-90">🏷️ <%= tour.source %></p>
+    </div>
+
+    <!-- Content -->
+    <div class="p-4 pb-24">
+        <!-- 基本資訊 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-gray-500">📍 國家</span>
+                <span class="font-bold"><%= tour.country %></span>
+            </div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-gray-500">📆 天數</span>
+                <span class="font-bold"><%= tour.days %> 天</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500">💰 預算</span>
+                <span class="font-bold text-red-500">$<%= tour.estimatedCostMin || 30000 %> - $<%= tour.estimatedCostMax || 50000 %></span>
+            </div>
+        </div>
+
+        <!-- 亮點 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h2 class="text-lg font-bold text-red-500 mb-3">✨ 行程亮點</h2>
+            <div class="flex flex-wrap gap-2">
+                <% (tour.highlights || []).forEach(function(h) { %>
+                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm"><%= h %></span>
+                <% }); %>
+            </div>
+        </div>
+
+        <!-- 每日行程 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h2 class="text-lg font-bold text-red-500 mb-3">📋 每日行程</h2>
+            <% (tour.itinerary || []).forEach(function(day) { %>
+                <div class="mb-4 pb-4 border-b last:border-b-0">
+                    <h3 class="font-bold text-blue-600 mb-2">📅 Day <%= day.day %>: <%= day.title %></h3>
+                    <ul class="ml-4">
+                        <% (day.activities || []).forEach(function(act) { %>
+                            <li class="text-gray-600 mb-1">• <%= act %></li>
+                        <% }); %>
+                    </ul>
+                </div>
+            <% }); %>
+        </div>
+
+        <!-- 提醒 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h2 class="text-lg font-bold text-red-500 mb-3">💡 旅遊提醒</h2>
+            <ul>
+                <% (tour.tips || []).forEach(function(tip) { %>
+                    <li class="text-gray-600 mb-2">• <%= tip %></li>
+                <% }); %>
+            </ul>
+        </div>
+
+        <!-- 最佳季節 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500">🗓️ 最佳季節</span>
+                <span class="font-bold"><%= tour.bestSeason || '全年皆宜' %></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部按鈕 -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 flex gap-2">
+        <button onclick="shareTour()" class="flex-1 bg-green-500 text-white py-3 rounded-lg font-bold">
+            📤 分享給好友
+        </button>
+        <button onclick="downloadPDF()" class="flex-1 bg-blue-500 text-white py-3 rounded-lg font-bold">
+            📄 下載 PDF
+        </button>
+    </div>
+
+    <script>
+        var tourData = <%- JSON.stringify(tour) %>;
+        var liffId = '<%= liffId %>';
+
+        // 初始化 LIFF
+        liff.init({ liffId: liffId }).then(function() {
+            console.log('LIFF initialized');
+        }).catch(function(err) {
+            console.error('LIFF init error:', err);
+        });
+
+        // 分享行程
+        function shareTour() {
+            if (liff.isApiAvailable('shareTargetPicker')) {
+                liff.shareTargetPicker([{
+                    type: 'text',
+                    text: '🌍 推薦行程：' + tourData.name + '\n' +
+                          '📍 ' + tourData.country + ' ' + tourData.days + '天\n' +
+                          '💰 預算 $' + (tourData.estimatedCostMin || 30000) + '-$' + (tourData.estimatedCostMax || 50000) + '\n\n' +
+                          '✨ 亮點：' + (tourData.highlights || []).slice(0, 3).join('、') + '\n\n' +
+                          '加入退休福音讓AI幫你規劃行程！\n' +
+                          'https://line.me/R/ti/p/@024wclps'
+                }]).then(function(res) {
+                    if (res) {
+                        alert('分享成功！');
+                    }
+                }).catch(function(err) {
+                    console.error('Share error:', err);
+                });
+            } else {
+                alert('此功能需要在 LINE 內開啟');
+            }
+        }
+
+        // 下載 PDF
+        function downloadPDF() {
+            window.location.href = '/api/tour/' + tourData.id + '/pdf';
+        }
+    </script>
+</body>
+</html>

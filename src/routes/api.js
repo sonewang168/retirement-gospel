@@ -14,7 +14,7 @@ const logger = require('../utils/logger');
 const userService = require('../services/userService');
 const recommendationService = require('../services/recommendationService');
 const groupService = require('../services/groupService');
-const { User, Activity, Event, Group, Community } = require('../models');
+const { User, Activity, Event, Group, Community, TourPlan } = require('../models');
 
 // ============================================
 // 中間件
@@ -51,17 +51,103 @@ const validate = (req, res, next) => {
 };
 
 // ============================================
+// 行程 PDF 匯出 API（公開）
+// ============================================
+
+router.get('/tour/:id/pdf', async (req, res) => {
+    try {
+        var tourId = req.params.id;
+        var tour = await TourPlan.findByPk(tourId);
+        
+        if (!tour) {
+            return res.status(404).json({ error: '行程不存在' });
+        }
+        
+        // 建立 HTML 內容
+        var itineraryHtml = (tour.itinerary || []).map(function(day) {
+            var activities = (day.activities || []).map(function(act) {
+                return '<li style="margin: 5px 0;">' + act + '</li>';
+            }).join('');
+            return '<div style="margin-bottom: 20px;">' +
+                '<h3 style="color: #3498DB; margin-bottom: 10px;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3>' +
+                '<ul style="margin-left: 20px;">' + activities + '</ul>' +
+                '</div>';
+        }).join('');
+        
+        var highlightsHtml = (tour.highlights || []).map(function(h) {
+            return '<span style="background: #FADBD8; color: #E74C3C; padding: 5px 10px; border-radius: 15px; margin: 3px; display: inline-block;">' + h + '</span>';
+        }).join(' ');
+        
+        var tipsHtml = (tour.tips || []).map(function(t) {
+            return '<li style="margin: 5px 0;">' + t + '</li>';
+        }).join('');
+        
+        var html = '<!DOCTYPE html>' +
+            '<html><head><meta charset="UTF-8">' +
+            '<title>' + tour.name + ' - 退休福音</title>' +
+            '<style>' +
+            'body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }' +
+            '.header { background: linear-gradient(135deg, #E74C3C, #C0392B); color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }' +
+            '.section { background: white; border: 1px solid #eee; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }' +
+            '.info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }' +
+            '.info-label { color: #888; }' +
+            '.info-value { font-weight: bold; }' +
+            '.price { color: #E74C3C; }' +
+            'h2 { color: #E74C3C; border-bottom: 2px solid #E74C3C; padding-bottom: 10px; }' +
+            '.footer { text-align: center; color: #888; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }' +
+            '@media print { body { padding: 0; } .section { break-inside: avoid; } }' +
+            '</style></head><body>' +
+            
+            '<div class="header">' +
+            '<h1 style="margin: 0;">🌍 ' + tour.name + '</h1>' +
+            '<p style="margin: 10px 0 0 0; opacity: 0.9;">🏷️ ' + tour.source + ' | 📅 ' + new Date(tour.createdAt).toLocaleDateString('zh-TW') + '</p>' +
+            '</div>' +
+            
+            '<div class="section">' +
+            '<h2>📋 基本資訊</h2>' +
+            '<div class="info-row"><span class="info-label">📍 國家</span><span class="info-value">' + tour.country + '</span></div>' +
+            '<div class="info-row"><span class="info-label">📆 天數</span><span class="info-value">' + tour.days + ' 天</span></div>' +
+            '<div class="info-row"><span class="info-label">💰 預算</span><span class="info-value price">NT$ ' + (tour.estimatedCostMin || 30000).toLocaleString() + ' - ' + (tour.estimatedCostMax || 50000).toLocaleString() + '</span></div>' +
+            '<div class="info-row"><span class="info-label">🗓️ 最佳季節</span><span class="info-value">' + (tour.bestSeason || '全年皆宜') + '</span></div>' +
+            '</div>' +
+            
+            '<div class="section">' +
+            '<h2>✨ 行程亮點</h2>' +
+            '<div style="margin-top: 15px;">' + highlightsHtml + '</div>' +
+            '</div>' +
+            
+            '<div class="section">' +
+            '<h2>📋 每日行程</h2>' +
+            itineraryHtml +
+            '</div>' +
+            
+            '<div class="section">' +
+            '<h2>💡 旅遊提醒</h2>' +
+            '<ul style="margin-left: 20px;">' + tipsHtml + '</ul>' +
+            '</div>' +
+            
+            '<div class="footer">' +
+            '<p>🌅 退休福音 - 智慧生活規劃助手</p>' +
+            '<p>加入我們：https://line.me/R/ti/p/@024wclps</p>' +
+            '</div>' +
+            
+            '</body></html>';
+        
+        // 設定 Content-Type 為 HTML（讓瀏覽器可以列印成 PDF）
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(tour.name) + '.html"');
+        res.send(html);
+        
+    } catch (error) {
+        logger.error('PDF export error:', error);
+        res.status(500).json({ error: '匯出失敗' });
+    }
+});
+
+// ============================================
 // 種子資料 API（公開）
 // ============================================
 
-/**
- * 新增種子資料
- * GET /api/seed
- */
-/**
- * 新增種子資料（大量活動）
- * GET /api/seed?force=true 可強制重新匯入
- */
 router.get('/seed', async (req, res) => {
     try {
         const force = req.query.force === 'true';
@@ -74,12 +160,10 @@ router.get('/seed', async (req, res) => {
             });
         }
 
-        // 如果強制重新匯入，先清空
         if (force) {
             await Activity.destroy({ where: {} });
         }
 
-        // 載入種子資料
         const { allActivities } = require('../data/seedActivities');
         const result = await Activity.bulkCreate(allActivities);
         

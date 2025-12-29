@@ -3,81 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Noto Sans TC', -apple-system, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .error-container {
-            text-align: center;
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-            max-width: 350px;
-        }
-        .error-icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #2C3E50;
-            font-size: 1.3em;
-            margin-bottom: 10px;
-        }
-        p {
-            color: #7F8C8D;
-            margin-bottom: 25px;
-        }
-        .btn {
-            display: inline-block;
-            background: #E74C3C;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-            font-size: 1em;
-        }
-    </style>
+    <title><%= title %> - 退休福音</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="error-container">
-        <div class="error-icon">😢</div>
-        <h1><%= title %></h1>
-        <p><%= message || '發生錯誤，請稍後再試' %></p>
-        <button class="btn" id="closeBtn">返回</button>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+        <div class="text-6xl mb-4">😕</div>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4"><%= title %></h1>
+        <p class="text-gray-600 mb-6"><%= message %></p>
+        <a href="https://line.me/R/ti/p/@024wclps" class="bg-green-500 text-white px-6 py-3 rounded-lg inline-block">
+            返回 LINE Bot
+        </a>
     </div>
-
-    <script>
-        const LIFF_ID = '<%= liffId %>';
-        
-        document.getElementById('closeBtn').addEventListener('click', async () => {
-            try {
-                await liff.init({ liffId: LIFF_ID });
-                if (liff.isInClient()) {
-                    liff.closeWindow();
-                } else {
-                    window.history.back();
-                }
-            } catch (e) {
-                window.history.back();
-            }
-        });
-    </script>
 </body>
 </html>
