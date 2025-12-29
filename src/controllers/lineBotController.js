@@ -394,15 +394,68 @@ async function handlePostback(event, client) {
                         return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
                     }).join('\n\n');
                     
-                    response = { 
-                        type: 'text', 
-                        text: '🌍 ' + plan.name + '\n\n' +
-                              '📍 ' + plan.country + ' | ' + plan.days + '天\n' +
-                              '💰 $' + plan.estimatedCostMin + '-$' + plan.estimatedCostMax + '\n' +
-                              '🏷️ ' + plan.source + '\n\n' +
-                              '✨ 亮點：\n' + (plan.highlights || []).join('、') + '\n\n' +
-                              '📋 行程：\n' + itText + '\n\n' +
-                              '💡 提醒：\n' + (plan.tips || []).join('、')
+                    response = {
+                        type: 'flex',
+                        altText: plan.name,
+                        contents: {
+                            type: 'bubble',
+                            size: 'giga',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌍 ' + plan.name, weight: 'bold', size: 'lg', color: '#ffffff', wrap: true },
+                                    { type: 'text', text: '🏷️ ' + plan.source, size: 'sm', color: '#ffffff' }
+                                ],
+                                backgroundColor: '#E74C3C',
+                                paddingAll: 'lg'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '📍 ' + plan.country + ' | ' + plan.days + '天', size: 'sm', color: '#666666' },
+                                    { type: 'text', text: '💰 $' + plan.estimatedCostMin + '-$' + plan.estimatedCostMax, size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '✨ 亮點', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (plan.highlights || []).join('、'), size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '📋 行程', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: itText, size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '💡 提醒', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (plan.tips || []).join('、'), size: 'xs', color: '#888888', wrap: true, margin: 'sm' }
+                                ],
+                                paddingAll: 'lg'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'button', action: { type: 'uri', label: '📄 下載PDF', uri: 'https://retirement-gospel.onrender.com/api/tour/' + plan.id + '/pdf' }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
+                                            { type: 'button', action: { type: 'uri', label: '🔍 查機票', uri: 'https://www.skyscanner.com.tw/' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                                        ]
+                                    },
+                                    {
+                                        type: 'button',
+                                        action: {
+                                            type: 'uri',
+                                            label: '📤 分享給好友',
+                                            uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + plan.name + '\n📍 ' + plan.country + ' ' + plan.days + '天\n💰 預算 $' + plan.estimatedCostMin + '-$' + plan.estimatedCostMax + '\n\n加入退休福音讓AI幫你規劃！\nhttps://line.me/R/ti/p/@024wclps')
+                                        },
+                                        style: 'primary',
+                                        color: '#2ECC71',
+                                        height: 'sm',
+                                        margin: 'sm'
+                                    }
+                                ],
+                                paddingAll: 'sm'
+                            }
+                        }
                     };
                 } else {
                     response = { type: 'text', text: '找不到此行程' };
