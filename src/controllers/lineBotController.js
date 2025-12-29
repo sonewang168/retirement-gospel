@@ -500,6 +500,48 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '🌍 日本5天 - AI規劃行程\n📋 我的行程 - 查看收藏\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 天氣預報' };
                 break;
 
+            case 'edit_profile':
+                response = { 
+                    type: 'text', 
+                    text: '✏️ 修改個人資料\n\n請直接輸入您的城市名稱：\n\n例如：高雄市、台北市、台中市\n\n或輸入「取消」返回' 
+                };
+                break;
+
+            case 'toggle_notification':
+                var newStatus = !user.notificationEnabled;
+                await user.update({ notificationEnabled: newStatus });
+                response = { 
+                    type: 'text', 
+                    text: newStatus 
+                        ? '🔔 已開啟推播通知！\n\n每天早上 6 點會收到今日建議' 
+                        : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟'
+                };
+                break;
+
+            case 'add_appointment':
+                response = { type: 'text', text: '🏥 新增回診提醒\n\n請輸入回診日期和醫院名稱：\n\n例如：1/15 高雄長庚 心臟科' };
+                break;
+
+            case 'add_medication':
+                response = { type: 'text', text: '💊 新增用藥提醒\n\n請輸入藥名和服藥時間：\n\n例如：阿斯匹靈 早上8點' };
+                break;
+
+            case 'invite_family':
+                response = { 
+                    type: 'text', 
+                    text: '👨‍👩‍👧‍👦 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + (user.referralCode || 'ABC123') 
+                };
+                break;
+
+            case 'create_group':
+                response = { type: 'text', text: '➕ 建立揪團\n\n請輸入揪團資訊：\n\n例如：1/20 登山健行 壽山' };
+                break;
+
+            case 'join_community':
+                var communityId = params.get('id');
+                response = { type: 'text', text: '🎉 已加入社群！\n\n您已成功加入，可以開始與同好交流！' };
+                break;
+
             case 'start_onboarding':
                 await conversationService.startFlow(user.id, 'onboarding');
                 response = flexMessageBuilder.buildOnboardingStep1();
