@@ -4,48 +4,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { body, query, param, validationResult } = require('express-validator');
-const jwt = require('jsonwebtoken');
-
 const logger = require('../utils/logger');
-const userService = require('../services/userService');
-const recommendationService = require('../services/recommendationService');
-const groupService = require('../services/groupService');
-const { User, Activity, Event, Group, Community, TourPlan, HealthReminder } = require('../models');
-
-// ============================================
-// 中間件
-// ============================================
-
-const authenticateToken = async (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({ error: '未提供認證 Token' });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-        req.user = await User.findByPk(decoded.userId);
-        
-        if (!req.user) {
-            return res.status(401).json({ error: '用戶不存在' });
-        }
-        
-        next();
-    } catch (error) {
-        return res.status(403).json({ error: 'Token 無效或已過期' });
-    }
-};
-
-const validate = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-};
+const { User, Activity, TourPlan, HealthReminder } = require('../models');
 
 // ============================================
 // 資料庫修正 API（完整同步所有表）
@@ -57,14 +17,13 @@ router.get('/fix-db', async (req, res) => {
         
         logger.info('開始同步所有資料庫結構...');
         
-        // 同步所有表結構（會自動新增缺少的欄位）
         await sequelize.sync({ alter: true });
         
         logger.info('所有資料庫表同步完成');
         
         res.json({ 
             success: true, 
-            message: '所有資料庫結構已同步完成！包含 users, activities, tour_plans, health_reminders 等表' 
+            message: '所有資料庫結構已同步完成！' 
         });
     } catch (error) {
         logger.error('Fix DB error:', error);
@@ -78,8 +37,7 @@ router.get('/fix-db', async (req, res) => {
 
 router.get('/tour/:id/pdf', async (req, res) => {
     try {
-        var tourId = req.params.id;
-        var tour = await TourPlan.findByPk(tourId);
+        var tour = await TourPlan.findByPk(req.params.id);
         
         if (!tour) {
             return res.status(404).send('<h1>找不到此行程</h1>');
@@ -94,9 +52,7 @@ router.get('/tour/:id/pdf', async (req, res) => {
                         return '<li style="margin: 5px 0;">' + act + '</li>';
                     }).join('');
                 }
-                return '<div style="margin-bottom: 20px;">' +
-                    '<h3 style="color: #3498DB;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3>' +
-                    '<ul style="margin-left: 20px;">' + activities + '</ul></div>';
+                return '<div style="margin-bottom: 20px;"><h3 style="color: #3498DB;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3><ul style="margin-left: 20px;">' + activities + '</ul></div>';
             }).join('');
         }
         
@@ -162,50 +118,24 @@ router.get('/seed', async (req, res) => {
 });
 
 // ============================================
-// 認證 API
+// 統計 API
 // ============================================
 
-router.post('/auth/line', [
-    body('idToken').notEmpty()
-], validate, async (req, res) => {
+router.get('/stats', async (req, res) => {
     try {
-        const { idToken } = req.body;
-        let user = await User.findOne({ where: { lineUserId: idToken } });
+        const userCount = await User.count();
+        const activityCount = await Activity.count();
+        const tourCount = await TourPlan.count();
         
-        if (!user) {
-            user = await User.create({
-                lineUserId: idToken,
-                referralCode: Math.random().toString(36).substring(2, 8).toUpperCase()
-            });
-        }
-
-        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ token, user: { id: user.id, displayName: user.displayName } });
+        res.json({
+            users: userCount,
+            activities: activityCount,
+            tours: tourCount,
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
-        logger.error('Auth error:', error);
-        res.status(500).json({ error: '登入失敗' });
-    }
-});
-
-// ============================================
-// 用戶 API
-// ============================================
-
-router.get('/user/profile', authenticateToken, async (req, res) => {
-    try {
-        res.json(req.user);
-    } catch (error) {
-        res.status(500).json({ error: '取得失敗' });
-    }
-});
-
-router.put('/user/profile', authenticateToken, async (req, res) => {
-    try {
-        const { city, district, interests, notificationEnabled, morningPushTime } = req.body;
-        await req.user.update({ city, district, interests, notificationEnabled, morningPushTime });
-        res.json({ success: true, user: req.user });
-    } catch (error) {
-        res.status(500).json({ error: '更新失敗' });
+        logger.error('Stats error:', error);
+        res.status(500).json({ error: '取得統計失敗' });
     }
 });
 
@@ -231,3 +161,15 @@ router.get('/activities', async (req, res) => {
     } catch (error) {
         logger.error('Activities error:', error);
         res.status(500).json({ error: '取得失敗' });
+    }
+});
+
+// ============================================
+// 健康狀態 API
+// ============================================
+
+router.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+module.exports = router;
