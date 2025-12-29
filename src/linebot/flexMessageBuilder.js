@@ -11,6 +11,7 @@ function buildDailyRecommendations(activities, user) {
     }
 
     var bubbles = activities.slice(0, 5).map(function(act) {
+        var categoryName = getCategoryName(act.category);
         return {
             type: 'bubble',
             size: 'kilo',
@@ -28,8 +29,9 @@ function buildDailyRecommendations(activities, user) {
                 layout: 'vertical',
                 contents: [
                     { type: 'text', text: '📍 ' + (act.city || '高雄市') + ' ' + (act.district || ''), size: 'sm', color: '#666666' },
-                    { type: 'text', text: '🏷️ ' + (act.category || '休閒'), size: 'sm', color: '#888888', margin: 'sm' },
-                    { type: 'text', text: '⭐ ' + (act.rating || 4.5) + ' 分', size: 'sm', color: '#F39C12', margin: 'sm' }
+                    { type: 'text', text: '🏷️ ' + categoryName, size: 'sm', color: '#888888', margin: 'sm' },
+                    { type: 'text', text: '⭐ ' + (act.rating || 4.5) + ' 分', size: 'sm', color: '#F39C12', margin: 'sm' },
+                    { type: 'text', text: act.shortDescription || '', size: 'xs', color: '#999999', margin: 'sm', wrap: true }
                 ],
                 paddingAll: 'md'
             },
@@ -52,9 +54,29 @@ function buildDailyRecommendations(activities, user) {
     };
 }
 
+function getCategoryName(category) {
+    var map = {
+        'culture': '🏛️ 文化藝術',
+        'nature': '🌳 自然景觀',
+        'religion': '🙏 宗教聖地',
+        'food': '🍜 美食品嚐',
+        'sports': '💪 運動健身',
+        'entertainment': '🎭 休閒娛樂',
+        'shopping': '🛍️ 購物血拼',
+        'health': '💆 養生保健'
+    };
+    return map[category] || '🎯 精彩活動';
+}
+
 function buildActivityDetail(activity, user) {
     if (!activity) {
         return { type: 'text', text: '找不到此活動' };
+    }
+
+    var categoryName = getCategoryName(activity.category);
+    var priceText = '免費';
+    if (activity.costMax && activity.costMax > 0) {
+        priceText = '$' + (activity.costMin || 0) + '-$' + activity.costMax;
     }
 
     return {
@@ -83,9 +105,13 @@ function buildActivityDetail(activity, user) {
                     { type: 'text', text: activity.description || '精彩活動等你來體驗', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
-                        { type: 'text', text: '🏷️ ' + (activity.category || '休閒'), size: 'sm', color: '#888888', flex: 1 },
+                        { type: 'text', text: categoryName, size: 'sm', color: '#888888', flex: 1 },
                         { type: 'text', text: '⭐ ' + (activity.rating || 4.5), size: 'sm', color: '#F39C12', flex: 1 },
-                        { type: 'text', text: '💰 ' + (activity.priceRange || '免費'), size: 'sm', color: '#27AE60', flex: 1 }
+                        { type: 'text', text: '💰 ' + priceText, size: 'sm', color: '#27AE60', flex: 1 }
+                    ]},
+                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                        { type: 'text', text: '⏱️ 約 ' + ((activity.estimatedDuration || 120) / 60) + ' 小時', size: 'xs', color: '#888888', flex: 1 },
+                        { type: 'text', text: activity.isAccessible ? '♿ 無障礙' : '', size: 'xs', color: '#888888', flex: 1 }
                     ]}
                 ],
                 paddingAll: 'lg'
@@ -105,18 +131,18 @@ function buildActivityDetail(activity, user) {
 
 function buildExploreCategories() {
     var categories = [
-        { name: '🏛️ 文化藝術', id: '文化藝術', color: '#9B59B6' },
-        { name: '🌳 戶外踏青', id: '戶外踏青', color: '#27AE60' },
-        { name: '🍜 美食品嚐', id: '美食品嚐', color: '#E74C3C' },
-        { name: '💪 運動健身', id: '運動健身', color: '#3498DB' },
-        { name: '📚 學習成長', id: '學習成長', color: '#F39C12' },
-        { name: '🎭 社交娛樂', id: '社交娛樂', color: '#1ABC9C' }
+        { name: '🏛️ 文化藝術', id: 'culture', color: '#9B59B6' },
+        { name: '🌳 自然景觀', id: 'nature', color: '#27AE60' },
+        { name: '🙏 宗教聖地', id: 'religion', color: '#F39C12' },
+        { name: '🍜 美食品嚐', id: 'food', color: '#E74C3C' },
+        { name: '💪 運動健身', id: 'sports', color: '#3498DB' },
+        { name: '🎭 休閒娛樂', id: 'entertainment', color: '#1ABC9C' }
     ];
 
     var buttons = categories.map(function(cat) {
         return {
             type: 'button',
-            action: { type: 'postback', label: cat.name, data: 'action=explore_category&category=' + encodeURIComponent(cat.id) },
+            action: { type: 'postback', label: cat.name, data: 'action=explore_category&category=' + cat.id },
             style: 'primary',
             color: cat.color,
             height: 'sm',
@@ -151,10 +177,10 @@ function buildExploreCategories() {
 }
 
 function buildCategoryActivities(activities, category) {
+    var categoryName = getCategoryName(category);
     if (!activities || activities.length === 0) {
-        return { type: 'text', text: '目前「' + category + '」類別沒有活動\n\n試試其他類別！' };
+        return { type: 'text', text: '目前「' + categoryName + '」類別沒有活動\n\n試試其他類別！' };
     }
-
     return buildDailyRecommendations(activities, null);
 }
 
@@ -482,7 +508,10 @@ function buildHelpMenu() {
                     { type: 'text', text: '輸入「天氣」或「東京天氣」', size: 'sm', color: '#666666', margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '💡 今日推薦', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                    { type: 'text', text: '每日精選活動推薦', size: 'sm', color: '#666666', margin: 'sm' }
+                    { type: 'text', text: '每日精選活動推薦', size: 'sm', color: '#666666', margin: 'sm' },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '🔍 找活動', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
+                    { type: 'text', text: '依分類探索活動', size: 'sm', color: '#666666', margin: 'sm' }
                 ],
                 paddingAll: 'lg'
             }
