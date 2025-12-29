@@ -32,7 +32,7 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING(50)
         },
         interests: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
+            type: DataTypes.JSONB,
             defaultValue: []
         },
         notificationEnabled: {

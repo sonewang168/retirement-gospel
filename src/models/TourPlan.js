@@ -31,7 +31,7 @@ module.exports = (sequelize) => {
             defaultValue: 'AI'
         },
         highlights: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
+            type: DataTypes.JSONB,
             defaultValue: []
         },
         itinerary: {
@@ -39,7 +39,7 @@ module.exports = (sequelize) => {
             defaultValue: []
         },
         tips: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
+            type: DataTypes.JSONB,
             defaultValue: []
         },
         estimatedCostMin: {
