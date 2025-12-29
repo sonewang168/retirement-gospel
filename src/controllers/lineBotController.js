@@ -290,44 +290,7 @@ async function handleKeywordMessage(text, user, client, event) {
 
     // ========== 幫助 ==========
     if (matchKeywords(lowerText, ['幫助', '說明', 'help', '怎麼用', '功能', '?', '？'])) {
-        return {
-            type: 'flex',
-            altText: '功能說明',
-            contents: {
-                type: 'bubble',
-                size: 'giga',
-                header: {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                        { type: 'text', text: '🌅 退休福音 功能說明', weight: 'bold', size: 'lg', color: '#ffffff' }
-                    ],
-                    backgroundColor: '#E74C3C',
-                    paddingAll: 'lg'
-                },
-                body: {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                        { type: 'text', text: '🌍 AI 行程規劃', weight: 'bold', size: 'md', color: '#E74C3C' },
-                        { type: 'text', text: '輸入「日本5天」「韓國3天」等\nAI 會用 ChatGPT + Gemini 雙引擎\n為您規劃專屬行程', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
-                        { type: 'separator', margin: 'lg' },
-                        { type: 'text', text: '📋 我的行程', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                        { type: 'text', text: '查看收藏的行程、刪除、分享給好友', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
-                        { type: 'separator', margin: 'lg' },
-                        { type: 'text', text: '💡 今日推薦', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                        { type: 'text', text: '根據天氣、您的偏好推薦活動', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
-                        { type: 'separator', margin: 'lg' },
-                        { type: 'text', text: '☁️ 天氣查詢', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                        { type: 'text', text: '輸入「天氣」或「東京天氣」\n支援全球 200+ 城市', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
-                        { type: 'separator', margin: 'lg' },
-                        { type: 'text', text: '🔔 每日推播', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                        { type: 'text', text: '每天早上 6 點推送今日建議', size: 'sm', color: '#666666', wrap: true, margin: 'sm' }
-                    ],
-                    paddingAll: 'lg'
-                }
-            }
-        };
+        return flexMessageBuilder.buildHelpMenu();
     }
 
     // ========== 客服 ==========
@@ -488,22 +451,30 @@ async function handlePostback(event, client) {
                 response = flexMessageBuilder.buildSettingsMenu(user);
                 break;
 
-            case 'health_menu':
-                response = flexMessageBuilder.buildHealthMenu(user);
-                break;
-
-            case 'family_menu':
-                response = flexMessageBuilder.buildFamilyMenu(user);
-                break;
-
-            case 'help':
-                response = { type: 'text', text: '🌍 日本5天 - AI規劃行程\n📋 我的行程 - 查看收藏\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 天氣預報' };
-                break;
-
             case 'edit_profile':
+            case 'edit_city':
+                response = flexMessageBuilder.buildCityPickerMenu();
+                break;
+
+            case 'set_city':
+                var newCity = params.get('city');
+                await user.update({ city: newCity });
                 response = { 
                     type: 'text', 
-                    text: '✏️ 修改個人資料\n\n請直接輸入您的城市名稱：\n\n例如：高雄市、台北市、台中市\n\n或輸入「取消」返回' 
+                    text: '✅ 城市已更新為：' + newCity + '\n\n輸入「設定」查看完整設定'
+                };
+                break;
+
+            case 'edit_push_time':
+                response = flexMessageBuilder.buildTimePickerMenu();
+                break;
+
+            case 'set_push_time':
+                var newTime = params.get('time');
+                await user.update({ morningPushTime: newTime });
+                response = { 
+                    type: 'text', 
+                    text: '✅ 早安推播時間已設定為：' + newTime + '\n\n每天 ' + newTime + ' 會收到早安問候 ☀️\n\n輸入「設定」查看完整設定'
                 };
                 break;
 
@@ -513,9 +484,17 @@ async function handlePostback(event, client) {
                 response = { 
                     type: 'text', 
                     text: newStatus 
-                        ? '🔔 已開啟推播通知！\n\n每天早上 6 點會收到今日建議' 
+                        ? '🔔 已開啟推播通知！\n\n每天 ' + (user.morningPushTime || '06:00') + ' 會收到早安問候'
                         : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟'
                 };
+                break;
+
+            case 'health_menu':
+                response = flexMessageBuilder.buildHealthMenu(user);
+                break;
+
+            case 'family_menu':
+                response = flexMessageBuilder.buildFamilyMenu(user);
                 break;
 
             case 'add_appointment':
@@ -540,6 +519,10 @@ async function handlePostback(event, client) {
             case 'join_community':
                 var communityId = params.get('id');
                 response = { type: 'text', text: '🎉 已加入社群！\n\n您已成功加入，可以開始與同好交流！' };
+                break;
+
+            case 'help':
+                response = flexMessageBuilder.buildHelpMenu();
                 break;
 
             case 'start_onboarding':

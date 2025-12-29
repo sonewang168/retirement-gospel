@@ -108,10 +108,6 @@ function buildActivityDetail(activity, user) {
                         { type: 'text', text: categoryName, size: 'sm', color: '#888888', flex: 1 },
                         { type: 'text', text: '⭐ ' + (activity.rating || 4.5), size: 'sm', color: '#F39C12', flex: 1 },
                         { type: 'text', text: '💰 ' + priceText, size: 'sm', color: '#27AE60', flex: 1 }
-                    ]},
-                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-                        { type: 'text', text: '⏱️ 約 ' + ((activity.estimatedDuration || 120) / 60) + ' 小時', size: 'xs', color: '#888888', flex: 1 },
-                        { type: 'text', text: activity.isAccessible ? '♿ 無障礙' : '', size: 'xs', color: '#888888', flex: 1 }
                     ]}
                 ],
                 paddingAll: 'lg'
@@ -205,7 +201,7 @@ function buildGroupList(groups) {
                     layout: 'vertical',
                     contents: [
                         { type: 'text', text: '目前沒有開放的揪團', size: 'md', color: '#666666', wrap: true },
-                        { type: 'text', text: '您可以建立一個新揪團，邀請志同道合的朋友一起出遊！', size: 'sm', color: '#888888', wrap: true, margin: 'md' }
+                        { type: 'text', text: '您可以建立一個新揪團！', size: 'sm', color: '#888888', wrap: true, margin: 'md' }
                     ],
                     paddingAll: 'lg'
                 },
@@ -247,8 +243,7 @@ function buildGroupList(groups) {
                 type: 'box',
                 layout: 'horizontal',
                 contents: [
-                    { type: 'button', action: { type: 'postback', label: '📖 詳情', data: 'action=view_group&id=' + g.id }, style: 'primary', color: '#3498DB', height: 'sm' },
-                    { type: 'button', action: { type: 'postback', label: '✋ 參加', data: 'action=join_group&id=' + g.id }, style: 'secondary', height: 'sm', margin: 'sm' }
+                    { type: 'button', action: { type: 'postback', label: '✋ 參加', data: 'action=join_group&id=' + g.id }, style: 'primary', color: '#9B59B6', height: 'sm' }
                 ],
                 paddingAll: 'sm'
             }
@@ -263,6 +258,9 @@ function buildGroupList(groups) {
 }
 
 function buildSettingsMenu(user) {
+    var notificationText = user.notificationEnabled ? '✅ 開啟' : '❌ 關閉';
+    var pushTime = user.morningPushTime || '06:00';
+    
     return {
         type: 'flex',
         altText: '設定選單',
@@ -283,21 +281,110 @@ function buildSettingsMenu(user) {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    { type: 'box', layout: 'horizontal', contents: [
+                    { type: 'text', text: '📋 目前設定', weight: 'bold', size: 'md', color: '#34495E' },
+                    { type: 'separator', margin: 'md' },
+                    { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
                         { type: 'text', text: '📍 所在城市', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: user.city || '未設定', size: 'sm', color: '#333333', flex: 3 }
+                        { type: 'text', text: user.city || '未設定', size: 'sm', color: '#333333', flex: 3, weight: 'bold' }
                     ]},
                     { type: 'box', layout: 'horizontal', margin: 'md', contents: [
                         { type: 'text', text: '🔔 推播通知', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: user.notificationEnabled ? '✅ 開啟' : '❌ 關閉', size: 'sm', color: '#333333', flex: 3 }
+                        { type: 'text', text: notificationText, size: 'sm', color: '#333333', flex: 3, weight: 'bold' }
                     ]},
                     { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-                        { type: 'text', text: '⏰ 早安推播', size: 'sm', color: '#888888', flex: 2 },
-                        { type: 'text', text: user.morningPushTime || '06:00', size: 'sm', color: '#333333', flex: 3 }
+                        { type: 'text', text: '⏰ 早安時間', size: 'sm', color: '#888888', flex: 2 },
+                        { type: 'text', text: pushTime, size: 'sm', color: '#333333', flex: 3, weight: 'bold' }
                     ]},
                     { type: 'separator', margin: 'lg' },
-                    { type: 'button', action: { type: 'postback', label: '✏️ 修改個人資料', data: 'action=edit_profile' }, style: 'primary', color: '#3498DB', margin: 'lg' },
-                    { type: 'button', action: { type: 'postback', label: user.notificationEnabled ? '🔕 關閉推播' : '🔔 開啟推播', data: 'action=toggle_notification' }, style: 'secondary', margin: 'sm' }
+                    { type: 'text', text: '🔧 修改設定', weight: 'bold', size: 'md', color: '#34495E', margin: 'lg' },
+                    { type: 'button', action: { type: 'postback', label: '📍 修改城市', data: 'action=edit_city' }, style: 'primary', color: '#3498DB', margin: 'md', height: 'sm' },
+                    { type: 'button', action: { type: 'postback', label: '⏰ 修改早安時間', data: 'action=edit_push_time' }, style: 'primary', color: '#9B59B6', margin: 'sm', height: 'sm' },
+                    { type: 'button', action: { type: 'postback', label: user.notificationEnabled ? '🔕 關閉推播' : '🔔 開啟推播', data: 'action=toggle_notification' }, style: 'secondary', margin: 'sm', height: 'sm' }
+                ],
+                paddingAll: 'lg'
+            }
+        }
+    };
+}
+
+function buildTimePickerMenu() {
+    return {
+        type: 'flex',
+        altText: '選擇早安推播時間',
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '⏰ 選擇早安推播時間', weight: 'bold', size: 'lg', color: '#ffffff' }
+                ],
+                backgroundColor: '#9B59B6',
+                paddingAll: 'lg'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '請選擇您希望收到早安問候的時間：', size: 'sm', color: '#666666', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+                        { type: 'button', action: { type: 'postback', label: '05:00', data: 'action=set_push_time&time=05:00' }, style: 'secondary', height: 'sm', flex: 1 },
+                        { type: 'button', action: { type: 'postback', label: '06:00', data: 'action=set_push_time&time=06:00' }, style: 'primary', color: '#9B59B6', height: 'sm', flex: 1, margin: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '07:00', data: 'action=set_push_time&time=07:00' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    ]},
+                    { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+                        { type: 'button', action: { type: 'postback', label: '08:00', data: 'action=set_push_time&time=08:00' }, style: 'secondary', height: 'sm', flex: 1 },
+                        { type: 'button', action: { type: 'postback', label: '09:00', data: 'action=set_push_time&time=09:00' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '10:00', data: 'action=set_push_time&time=10:00' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    ]}
+                ],
+                paddingAll: 'lg'
+            }
+        }
+    };
+}
+
+function buildCityPickerMenu() {
+    return {
+        type: 'flex',
+        altText: '選擇城市',
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '📍 選擇您的城市', weight: 'bold', size: 'lg', color: '#ffffff' }
+                ],
+                backgroundColor: '#3498DB',
+                paddingAll: 'lg'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '請選擇您所在的城市：', size: 'sm', color: '#666666', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+                        { type: 'button', action: { type: 'postback', label: '高雄市', data: 'action=set_city&city=高雄市' }, style: 'primary', color: '#E74C3C', height: 'sm', flex: 1 },
+                        { type: 'button', action: { type: 'postback', label: '台北市', data: 'action=set_city&city=台北市' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '新北市', data: 'action=set_city&city=新北市' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    ]},
+                    { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+                        { type: 'button', action: { type: 'postback', label: '台中市', data: 'action=set_city&city=台中市' }, style: 'secondary', height: 'sm', flex: 1 },
+                        { type: 'button', action: { type: 'postback', label: '台南市', data: 'action=set_city&city=台南市' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '桃園市', data: 'action=set_city&city=桃園市' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    ]},
+                    { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+                        { type: 'button', action: { type: 'postback', label: '新竹市', data: 'action=set_city&city=新竹市' }, style: 'secondary', height: 'sm', flex: 1 },
+                        { type: 'button', action: { type: 'postback', label: '彰化縣', data: 'action=set_city&city=彰化縣' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' },
+                        { type: 'button', action: { type: 'postback', label: '屏東縣', data: 'action=set_city&city=屏東縣' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    ]},
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '💡 或直接輸入城市名稱', size: 'xs', color: '#888888', margin: 'md' }
                 ],
                 paddingAll: 'lg'
             }
@@ -597,6 +684,8 @@ module.exports = {
     buildCategoryActivities: buildCategoryActivities,
     buildGroupList: buildGroupList,
     buildSettingsMenu: buildSettingsMenu,
+    buildTimePickerMenu: buildTimePickerMenu,
+    buildCityPickerMenu: buildCityPickerMenu,
     buildHealthMenu: buildHealthMenu,
     buildFamilyMenu: buildFamilyMenu,
     buildCommunityList: buildCommunityList,
