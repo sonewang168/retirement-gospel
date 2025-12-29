@@ -1,8 +1,8 @@
 /**
- * 用戶服務
+ * 用戶服務（完整版）
  */
 const logger = require('../utils/logger');
-const { User } = require('../models');
+const { User, UserWishlist, Activity } = require('../models');
 
 /**
  * 根據 LINE User ID 取得或建立用戶
@@ -121,11 +121,85 @@ async function updateSettings(userId, settings) {
  */
 async function saveToWishlist(userId, activityId) {
     try {
+        const existing = await UserWishlist.findOne({
+            where: { userId: userId, activityId: activityId }
+        });
+        
+        if (existing) {
+            logger.info('Activity already in wishlist');
+            return { success: true, exists: true };
+        }
+        
+        await UserWishlist.create({
+            userId: userId,
+            activityId: activityId
+        });
+        
         logger.info('User ' + userId + ' saved activity ' + activityId + ' to wishlist');
-        // 未來可建立 UserWishlist 表來儲存
-        return true;
+        return { success: true, exists: false };
     } catch (error) {
         logger.error('saveToWishlist error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 取得用戶想去清單
+ */
+async function getWishlist(userId) {
+    try {
+        const wishlist = await UserWishlist.findAll({
+            where: { userId: userId },
+            include: [{
+                model: Activity,
+                required: true
+            }],
+            order: [['createdAt', 'DESC']]
+        });
+        
+        return wishlist.map(function(item) {
+            return {
+                id: item.id,
+                activityId: item.activityId,
+                isVisited: item.isVisited,
+                visitedAt: item.visitedAt,
+                note: item.note,
+                activity: item.Activity
+            };
+        });
+    } catch (error) {
+        logger.error('getWishlist error:', error);
+        return [];
+    }
+}
+
+/**
+ * 從想去清單移除
+ */
+async function removeFromWishlist(userId, activityId) {
+    try {
+        const result = await UserWishlist.destroy({
+            where: { userId: userId, activityId: activityId }
+        });
+        return result > 0;
+    } catch (error) {
+        logger.error('removeFromWishlist error:', error);
+        return false;
+    }
+}
+
+/**
+ * 標記已去過
+ */
+async function markAsVisited(userId, activityId) {
+    try {
+        const result = await UserWishlist.update(
+            { isVisited: true, visitedAt: new Date() },
+            { where: { userId: userId, activityId: activityId } }
+        );
+        return result[0] > 0;
+    } catch (error) {
+        logger.error('markAsVisited error:', error);
         return false;
     }
 }
@@ -182,6 +256,9 @@ module.exports = {
     completeOnboarding,
     updateSettings,
     saveToWishlist,
+    getWishlist,
+    removeFromWishlist,
+    markAsVisited,
     generateReferralCode,
     getUserById,
     getUserByLineId,

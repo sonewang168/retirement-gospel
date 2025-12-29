@@ -1,5 +1,5 @@
 /**
- * Flex Message 建構器（完整版）
+ * Flex Message 建構器（完整版 + 想去清單）
  */
 
 function buildDailyRecommendations(activities, user) {
@@ -722,14 +722,14 @@ function buildHelpMenu() {
                     { type: 'text', text: '📋 我的行程', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
                     { type: 'text', text: '查看、分享、下載PDF', size: 'sm', color: '#666666', margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '❤️ 想去清單', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
+                    { type: 'text', text: '收藏喜歡的活動', size: 'sm', color: '#666666', margin: 'sm' },
+                    { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '☁️ 天氣查詢', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
                     { type: 'text', text: '輸入「天氣」或「東京天氣」\n支援全球 200+ 城市', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '💊 健康管理', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                    { type: 'text', text: '回診提醒、用藥提醒', size: 'sm', color: '#666666', margin: 'sm' },
-                    { type: 'separator', margin: 'lg' },
-                    { type: 'text', text: '🔍 找活動', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                    { type: 'text', text: '依分類探索活動', size: 'sm', color: '#666666', margin: 'sm' }
+                    { type: 'text', text: '回診提醒、用藥提醒', size: 'sm', color: '#666666', margin: 'sm' }
                 ],
                 paddingAll: 'lg'
             }
@@ -749,7 +749,7 @@ function buildQuickActions() {
                 contents: [
                     { type: 'button', action: { type: 'message', label: '🌍 日本5天', text: '日本5天' }, style: 'primary', color: '#E74C3C' },
                     { type: 'button', action: { type: 'message', label: '📋 我的行程', text: '我的行程' }, style: 'secondary', margin: 'sm' },
-                    { type: 'button', action: { type: 'message', label: '💡 今日推薦', text: '今日推薦' }, style: 'secondary', margin: 'sm' },
+                    { type: 'button', action: { type: 'message', label: '❤️ 想去清單', text: '想去清單' }, style: 'secondary', margin: 'sm' },
                     { type: 'button', action: { type: 'message', label: '☁️ 天氣', text: '天氣' }, style: 'secondary', margin: 'sm' }
                 ],
                 paddingAll: 'lg'
@@ -777,53 +777,4 @@ function buildOnboardingStart() {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    { type: 'text', text: '讓我們花 1 分鐘了解您，\n提供更貼心的服務！', size: 'md', color: '#666666', wrap: true }
-                ],
-                paddingAll: 'lg'
-            },
-            footer: {
-                type: 'box',
-                layout: 'horizontal',
-                contents: [
-                    { type: 'button', action: { type: 'postback', label: '開始設定', data: 'action=start_onboarding' }, style: 'primary', color: '#E74C3C' },
-                    { type: 'button', action: { type: 'postback', label: '稍後再說', data: 'action=skip_onboarding' }, style: 'secondary', margin: 'sm' }
-                ],
-                paddingAll: 'md'
-            }
-        }
-    };
-}
-
-function buildOnboardingStep1() {
-    return {
-        type: 'text',
-        text: '📍 請問您住在哪個城市？\n\n例如：高雄市、台北市、台中市'
-    };
-}
-
-function buildNearbyActivities(activities, address) {
-    if (!activities || activities.length === 0) {
-        return { type: 'text', text: '📍 ' + (address || '您的位置') + '\n\n附近沒有找到推薦活動' };
-    }
-    return buildDailyRecommendations(activities, null);
-}
-
-module.exports = {
-    buildDailyRecommendations: buildDailyRecommendations,
-    buildActivityDetail: buildActivityDetail,
-    buildExploreCategories: buildExploreCategories,
-    buildCategoryActivities: buildCategoryActivities,
-    buildGroupList: buildGroupList,
-    buildSettingsMenu: buildSettingsMenu,
-    buildTimePickerMenu: buildTimePickerMenu,
-    buildCityPickerMenu: buildCityPickerMenu,
-    buildWeatherCard: buildWeatherCard,
-    buildHealthMenu: buildHealthMenu,
-    buildFamilyMenu: buildFamilyMenu,
-    buildCommunityList: buildCommunityList,
-    buildHelpMenu: buildHelpMenu,
-    buildQuickActions: buildQuickActions,
-    buildOnboardingStart: buildOnboardingStart,
-    buildOnboardingStep1: buildOnboardingStep1,
-    buildNearbyActivities: buildNearbyActivities
-};
+                    { type: 'text', text: '讓我們花 1 分鐘了解您，\n提供更貼心的服務！', size: 'md', color: '#666

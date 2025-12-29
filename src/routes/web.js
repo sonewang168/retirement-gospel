@@ -91,5 +91,8 @@ router.get('/terms', (req, res) => {
         title: '服務條款'
     });
 });
-
+// 管理後台
+router.get('/admin', async (req, res) => {
+    res.render('admin/dashboard');
+});
 module.exports = router;

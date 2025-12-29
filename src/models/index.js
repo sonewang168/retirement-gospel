@@ -30,6 +30,7 @@ const Event = require('./Event')(sequelize);
 const Community = require('./Community')(sequelize);
 const ConversationState = require('./ConversationState')(sequelize);
 const HealthReminder = require('./HealthReminder')(sequelize);
+const UserWishlist = require('./UserWishlist')(sequelize);
 
 // 關聯設定
 User.hasMany(TourPlan, { foreignKey: 'userId' });
@@ -37,6 +38,12 @@ TourPlan.belongsTo(User, { foreignKey: 'userId' });
 
 User.hasMany(HealthReminder, { foreignKey: 'userId' });
 HealthReminder.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasMany(UserWishlist, { foreignKey: 'userId' });
+UserWishlist.belongsTo(User, { foreignKey: 'userId' });
+
+UserWishlist.belongsTo(Activity, { foreignKey: 'activityId' });
+Activity.hasMany(UserWishlist, { foreignKey: 'activityId' });
 
 User.hasMany(Group, { foreignKey: 'creatorId', as: 'createdGroups' });
 Group.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
@@ -54,5 +61,6 @@ module.exports = {
     Event,
     Community,
     ConversationState,
-    HealthReminder
+    HealthReminder,
+    UserWishlist
 };

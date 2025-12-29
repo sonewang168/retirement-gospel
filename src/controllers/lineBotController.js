@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（完整版）
+ * LINE Bot Controller（完整版 + 想去清單）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -23,7 +23,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」看精選活動\n☁️ 輸入「天氣」查看天氣預報\n💊 輸入「健康」管理用藥回診' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n💡 輸入「今日推薦」看精選活動\n☁️ 輸入「天氣」查看天氣預報\n💊 輸入「健康」管理用藥回診' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -43,7 +43,6 @@ async function handleTextMessage(event, client) {
         var user = await userService.getOrCreateUser(userId, client);
         await userService.updateLastActive(user.id);
 
-        // 檢查對話狀態
         var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
         
         // 處理健康提醒輸入模式
@@ -91,7 +90,6 @@ async function handleTextMessage(event, client) {
             }
         }
 
-        // 其他對話流程
         if (conversationState && conversationState.currentFlow && conversationState.currentFlow !== 'add_appointment' && conversationState.currentFlow !== 'add_medication') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
@@ -111,8 +109,14 @@ async function handleTextMessage(event, client) {
 async function handleKeywordMessage(text, user, client, event) {
     var lowerText = text.toLowerCase();
 
+    // ========== 想去清單 ==========
+    if (matchKeywords(lowerText, ['想去清單', '想去', '我的收藏活動', '收藏活動'])) {
+        var wishlist = await userService.getWishlist(user.id);
+        return flexMessageBuilder.buildWishlistCard(wishlist);
+    }
+
     // ========== 我的行程 ==========
-    if (lowerText.includes('我的行程') || lowerText.includes('我的收藏') || lowerText === '收藏') {
+    if (lowerText.includes('我的行程') || lowerText === '收藏') {
         var plans = await tourPlanService.getUserTourPlans(user.id);
         
         if (plans.length === 0) {
@@ -334,7 +338,7 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         var hour = new Date().getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊\n\n🌍 輸入「日本5天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」精選活動\n☁️ 輸入「天氣」查看天氣\n💊 輸入「健康」管理提醒' };
+        return { type: 'text', text: greeting + '！😊\n\n🌍 輸入「日本5天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看活動\n💡 輸入「今日推薦」精選活動\n☁️ 輸入「天氣」查看天氣\n💊 輸入「健康」管理提醒' };
     }
 
     // ========== 幫助 ==========
@@ -353,7 +357,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n📋 我的行程 - 查看收藏\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n📋 我的行程 - 查看收藏\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -492,8 +496,36 @@ async function handlePostback(event, client) {
                 break;
 
             case 'save_activity':
-                await userService.saveToWishlist(user.id, params.get('id'));
-                response = { type: 'text', text: '已加入想去清單 ❤️' };
+                var saveActId = params.get('id');
+                var result = await userService.saveToWishlist(user.id, saveActId);
+                if (result.exists) {
+                    response = { type: 'text', text: '這個活動已經在想去清單裡了 😊\n\n輸入「想去清單」查看' };
+                } else if (result.success) {
+                    response = { type: 'text', text: '❤️ 已加入想去清單！\n\n輸入「想去清單」查看所有收藏' };
+                } else {
+                    response = { type: 'text', text: '⚠️ 收藏失敗，請重試' };
+                }
+                break;
+
+            case 'remove_wishlist':
+                var removeActId = params.get('id');
+                var removed = await userService.removeFromWishlist(user.id, removeActId);
+                response = removed
+                    ? { type: 'text', text: '🗑️ 已從想去清單移除\n\n輸入「想去清單」查看剩餘收藏' }
+                    : { type: 'text', text: '⚠️ 移除失敗' };
+                break;
+
+            case 'toggle_visited':
+                var toggleActId = params.get('id');
+                var toggled = await userService.markAsVisited(user.id, toggleActId);
+                response = toggled
+                    ? { type: 'text', text: '✅ 已標記為去過！\n\n輸入「想去清單」查看' }
+                    : { type: 'text', text: '⚠️ 標記失敗' };
+                break;
+
+            case 'my_wishlist':
+                var wishlist = await userService.getWishlist(user.id);
+                response = flexMessageBuilder.buildWishlistCard(wishlist);
                 break;
 
             case 'settings':
@@ -543,7 +575,6 @@ async function handlePostback(event, client) {
                 break;
 
             case 'add_appointment':
-                // 進入新增回診流程
                 var [convState, created] = await ConversationState.findOrCreate({
                     where: { userId: user.id },
                     defaults: { userId: user.id }
@@ -556,7 +587,6 @@ async function handlePostback(event, client) {
                 break;
 
             case 'add_medication':
-                // 進入新增用藥流程
                 var [convState2, created2] = await ConversationState.findOrCreate({
                     where: { userId: user.id },
                     defaults: { userId: user.id }
@@ -603,7 +633,7 @@ async function handlePostback(event, client) {
                 break;
 
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n📋 我的行程\n💡 今日推薦\n💊 健康' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n📋 我的行程\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {
