@@ -11,20 +11,18 @@
     <nav class="bg-gradient-to-r from-red-500 to-red-600 text-white p-4 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold">🌅 退休福音管理後台</h1>
-            <div class="text-sm">
-                <span id="currentTime"></span>
-            </div>
+            <div class="text-sm" id="currentTime"></div>
         </div>
     </nav>
 
     <div class="container mx-auto p-6">
         <!-- 統計卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">總用戶數</p>
-                        <p class="text-3xl font-bold text-gray-800" id="userCount">-</p>
+                        <p class="text-3xl font-bold text-gray-800"><%= stats.users %></p>
                     </div>
                     <div class="text-4xl">👥</div>
                 </div>
@@ -34,7 +32,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">活動數量</p>
-                        <p class="text-3xl font-bold text-gray-800" id="activityCount">-</p>
+                        <p class="text-3xl font-bold text-gray-800"><%= stats.activities %></p>
                     </div>
                     <div class="text-4xl">🎯</div>
                 </div>
@@ -44,7 +42,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">AI行程數</p>
-                        <p class="text-3xl font-bold text-gray-800" id="tourCount">-</p>
+                        <p class="text-3xl font-bold text-gray-800"><%= stats.tours %></p>
                     </div>
                     <div class="text-4xl">🌍</div>
                 </div>
@@ -53,10 +51,20 @@
             <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-500 text-sm">伺服器狀態</p>
-                        <p class="text-xl font-bold text-green-500" id="serverStatus">運作中</p>
+                        <p class="text-gray-500 text-sm">健康提醒</p>
+                        <p class="text-3xl font-bold text-gray-800"><%= stats.reminders %></p>
                     </div>
-                    <div class="text-4xl">✅</div>
+                    <div class="text-4xl">💊</div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-pink-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">想去收藏</p>
+                        <p class="text-3xl font-bold text-gray-800"><%= stats.wishlists %></p>
+                    </div>
+                    <div class="text-4xl">❤️</div>
                 </div>
             </div>
         </div>
@@ -64,64 +72,102 @@
         <!-- 快速操作 -->
         <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
             <h2 class="text-xl font-bold text-gray-800 mb-4">⚡ 快速操作</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onclick="refreshStats()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg transition">
-                    🔄 重新整理統計
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <button onclick="refreshStats()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg transition flex items-center justify-center">
+                    🔄 重新整理
                 </button>
-                <button onclick="syncDatabase()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg transition">
+                <button onclick="syncDatabase()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg transition flex items-center justify-center">
                     🗄️ 同步資料庫
                 </button>
-                <button onclick="seedData()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-lg transition">
-                    📦 匯入種子資料
+                <button onclick="seedData()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-lg transition flex items-center justify-center">
+                    📦 匯入資料
                 </button>
-                <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition text-center">
+                <a href="https://line.me/R/ti/p/@024wclps" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg transition flex items-center justify-center">
+                    💬 LINE Bot
+                </a>
+                <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition flex items-center justify-center">
                     🏠 返回首頁
                 </a>
             </div>
         </div>
 
-        <!-- 功能列表 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- 功能狀態 -->
             <div class="bg-white rounded-xl shadow-lg p-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 主要功能</h2>
-                <ul class="space-y-3">
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> AI 行程規劃（ChatGPT + Gemini）
-                    </li>
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> 完整天氣服務（200+ 城市）
-                    </li>
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> 健康提醒（回診/用藥）
-                    </li>
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> 想去清單收藏
-                    </li>
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> 個人設定管理
-                    </li>
-                    <li class="flex items-center text-gray-600">
-                        <span class="text-green-500 mr-2">✅</span> 早安推播排程
-                    </li>
-                </ul>
-            </div>
-            
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">🔗 快速連結</h2>
+                <h2 class="text-xl font-bold text-gray-800 mb-4">✅ 功能狀態</h2>
                 <div class="space-y-3">
-                    <a href="https://line.me/R/ti/p/@024wclps" target="_blank" class="block bg-green-100 hover:bg-green-200 text-green-800 px-4 py-3 rounded-lg transition">
-                        💬 LINE Bot (@024wclps)
-                    </a>
-                    <a href="/api/stats" target="_blank" class="block bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-3 rounded-lg transition">
-                        📊 API 統計資料
-                    </a>
-                    <a href="/api/activities" target="_blank" class="block bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-3 rounded-lg transition">
-                        🎯 活動列表 API
-                    </a>
-                    <a href="/api/health" target="_blank" class="block bg-purple-100 hover:bg-purple-200 text-purple-800 px-4 py-3 rounded-lg transition">
-                        ❤️ 健康檢查 API
-                    </a>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>🌍 AI 行程規劃（ChatGPT + Gemini）</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>☁️ 天氣服務（200+ 城市）</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>💊 健康提醒（回診/用藥）</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>❤️ 想去清單收藏</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>⚙️ 個人設定管理</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span>⏰ 早安推播排程</span>
+                        <span class="text-green-500 font-bold">運作中</span>
+                    </div>
                 </div>
+            </div>
+
+            <!-- 最近用戶 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">👥 最近用戶</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="text-left p-2">名稱</th>
+                                <th class="text-left p-2">城市</th>
+                                <th class="text-left p-2">加入時間</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% recentUsers.forEach(function(user) { %>
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-2"><%= user.displayName || '用戶' %></td>
+                                <td class="p-2"><%= user.city || '未設定' %></td>
+                                <td class="p-2"><%= new Date(user.createdAt).toLocaleDateString('zh-TW') %></td>
+                            </tr>
+                            <% }); %>
+                            <% if (recentUsers.length === 0) { %>
+                            <tr><td colspan="3" class="p-4 text-center text-gray-500">尚無用戶</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- API 連結 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">🔗 API 連結</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="/api/stats" target="_blank" class="block bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-3 rounded-lg transition text-center">
+                    📊 統計資料
+                </a>
+                <a href="/api/activities" target="_blank" class="block bg-green-100 hover:bg-green-200 text-green-800 px-4 py-3 rounded-lg transition text-center">
+                    🎯 活動列表
+                </a>
+                <a href="/api/health" target="_blank" class="block bg-purple-100 hover:bg-purple-200 text-purple-800 px-4 py-3 rounded-lg transition text-center">
+                    ❤️ 健康檢查
+                </a>
+                <a href="/api/fix-db" target="_blank" class="block bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-4 py-3 rounded-lg transition text-center">
+                    🗄️ 同步資料庫
+                </a>
             </div>
         </div>
 
@@ -135,7 +181,7 @@
     </div>
 
     <footer class="bg-gray-800 text-white text-center p-4 mt-8">
-        <p>🌅 退休福音 © 2025 | Powered by LINE Bot + AI</p>
+        <p>🌅 退休福音 © 2025 | LINE Bot @024wclps</p>
     </footer>
 
     <script>
@@ -154,17 +200,8 @@
         }
 
         async function refreshStats() {
-            addLog('正在取得統計資料...');
-            try {
-                var res = await fetch('/api/stats');
-                var data = await res.json();
-                document.getElementById('userCount').textContent = data.users || 0;
-                document.getElementById('activityCount').textContent = data.activities || 0;
-                document.getElementById('tourCount').textContent = data.tours || 0;
-                addLog('統計資料已更新');
-            } catch (e) {
-                addLog('錯誤：' + e.message);
-            }
+            addLog('正在重新整理...');
+            location.reload();
         }
 
         async function syncDatabase() {
@@ -173,9 +210,8 @@
                 var res = await fetch('/api/fix-db');
                 var data = await res.json();
                 addLog(data.message || '同步完成');
-                refreshStats();
             } catch (e) {
-                addLog('錯誤：' + e.message);
+                addLog('錯誤: ' + e.message);
             }
         }
 
@@ -186,14 +222,12 @@
                 var res = await fetch('/api/seed?force=true');
                 var data = await res.json();
                 addLog(data.message || '匯入完成');
-                refreshStats();
             } catch (e) {
-                addLog('錯誤：' + e.message);
+                addLog('錯誤: ' + e.message);
             }
         }
 
-        // 載入時取得統計
-        refreshStats();
+        addLog('統計資料已載入');
     </script>
 </body>
 </html>
