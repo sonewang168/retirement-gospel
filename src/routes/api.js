@@ -1,8 +1,5 @@
 /**
- * ============================================
- * API 路由
- * RESTful API 端點
- * ============================================
+ * API 路由（完整版）
  */
 
 const express = require('express');
@@ -51,40 +48,78 @@ const validate = (req, res, next) => {
 };
 
 // ============================================
+// 資料庫修正 API
+// ============================================
+
+router.get('/fix-db', async (req, res) => {
+    try {
+        const { sequelize } = require('../models');
+        
+        // 修正 category 欄位從 ENUM 改為 VARCHAR
+        await sequelize.query(`
+            ALTER TABLE activities 
+            ALTER COLUMN category TYPE VARCHAR(50);
+        `);
+        
+        res.json({ success: true, message: 'category 欄位已修正為 VARCHAR(50)' });
+    } catch (error) {
+        logger.error('Fix DB error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
 // 行程 PDF 匯出 API（公開）
 // ============================================
 
 router.get('/tour/:id/pdf', async (req, res) => {
     try {
         var tourId = req.params.id;
+        logger.info('PDF export request: ' + tourId);
+        
         var tour = await TourPlan.findByPk(tourId);
         
         if (!tour) {
-            return res.status(404).json({ error: '行程不存在' });
+            logger.warn('Tour not found: ' + tourId);
+            return res.status(404).send('<h1>找不到此行程</h1><p>行程可能已被刪除</p>');
         }
         
+        logger.info('Generating PDF for: ' + tour.name);
+        
         // 建立 HTML 內容
-        var itineraryHtml = (tour.itinerary || []).map(function(day) {
-            var activities = (day.activities || []).map(function(act) {
-                return '<li style="margin: 5px 0;">' + act + '</li>';
+        var itineraryHtml = '';
+        if (tour.itinerary && Array.isArray(tour.itinerary)) {
+            itineraryHtml = tour.itinerary.map(function(day) {
+                var activities = '';
+                if (day.activities && Array.isArray(day.activities)) {
+                    activities = day.activities.map(function(act) {
+                        return '<li style="margin: 5px 0;">' + act + '</li>';
+                    }).join('');
+                }
+                return '<div style="margin-bottom: 20px;">' +
+                    '<h3 style="color: #3498DB; margin-bottom: 10px;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3>' +
+                    '<ul style="margin-left: 20px;">' + activities + '</ul>' +
+                    '</div>';
             }).join('');
-            return '<div style="margin-bottom: 20px;">' +
-                '<h3 style="color: #3498DB; margin-bottom: 10px;">📅 Day ' + day.day + ': ' + (day.title || '') + '</h3>' +
-                '<ul style="margin-left: 20px;">' + activities + '</ul>' +
-                '</div>';
-        }).join('');
+        }
         
-        var highlightsHtml = (tour.highlights || []).map(function(h) {
-            return '<span style="background: #FADBD8; color: #E74C3C; padding: 5px 10px; border-radius: 15px; margin: 3px; display: inline-block;">' + h + '</span>';
-        }).join(' ');
+        var highlightsHtml = '';
+        if (tour.highlights && Array.isArray(tour.highlights)) {
+            highlightsHtml = tour.highlights.map(function(h) {
+                return '<span style="background: #FADBD8; color: #E74C3C; padding: 5px 10px; border-radius: 15px; margin: 3px; display: inline-block;">' + h + '</span>';
+            }).join(' ');
+        }
         
-        var tipsHtml = (tour.tips || []).map(function(t) {
-            return '<li style="margin: 5px 0;">' + t + '</li>';
-        }).join('');
+        var tipsHtml = '';
+        if (tour.tips && Array.isArray(tour.tips)) {
+            tipsHtml = tour.tips.map(function(t) {
+                return '<li style="margin: 5px 0;">' + t + '</li>';
+            }).join('');
+        }
         
         var html = '<!DOCTYPE html>' +
             '<html><head><meta charset="UTF-8">' +
-            '<title>' + tour.name + ' - 退休福音</title>' +
+            '<title>' + (tour.name || '行程') + ' - 退休福音</title>' +
             '<style>' +
             'body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }' +
             '.header { background: linear-gradient(135deg, #E74C3C, #C0392B); color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }' +
@@ -95,35 +130,34 @@ router.get('/tour/:id/pdf', async (req, res) => {
             '.price { color: #E74C3C; }' +
             'h2 { color: #E74C3C; border-bottom: 2px solid #E74C3C; padding-bottom: 10px; }' +
             '.footer { text-align: center; color: #888; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }' +
-            '@media print { body { padding: 0; } .section { break-inside: avoid; } }' +
             '</style></head><body>' +
             
             '<div class="header">' +
-            '<h1 style="margin: 0;">🌍 ' + tour.name + '</h1>' +
-            '<p style="margin: 10px 0 0 0; opacity: 0.9;">🏷️ ' + tour.source + ' | 📅 ' + new Date(tour.createdAt).toLocaleDateString('zh-TW') + '</p>' +
+            '<h1 style="margin: 0;">🌍 ' + (tour.name || '精彩行程') + '</h1>' +
+            '<p style="margin: 10px 0 0 0; opacity: 0.9;">🏷️ ' + (tour.source || 'AI') + '</p>' +
             '</div>' +
             
             '<div class="section">' +
             '<h2>📋 基本資訊</h2>' +
-            '<div class="info-row"><span class="info-label">📍 國家</span><span class="info-value">' + tour.country + '</span></div>' +
-            '<div class="info-row"><span class="info-label">📆 天數</span><span class="info-value">' + tour.days + ' 天</span></div>' +
-            '<div class="info-row"><span class="info-label">💰 預算</span><span class="info-value price">NT$ ' + (tour.estimatedCostMin || 30000).toLocaleString() + ' - ' + (tour.estimatedCostMax || 50000).toLocaleString() + '</span></div>' +
+            '<div class="info-row"><span class="info-label">📍 國家</span><span class="info-value">' + (tour.country || '海外') + '</span></div>' +
+            '<div class="info-row"><span class="info-label">📆 天數</span><span class="info-value">' + (tour.days || 5) + ' 天</span></div>' +
+            '<div class="info-row"><span class="info-label">💰 預算</span><span class="info-value price">NT$ ' + (tour.estimatedCostMin || 30000) + ' - ' + (tour.estimatedCostMax || 50000) + '</span></div>' +
             '<div class="info-row"><span class="info-label">🗓️ 最佳季節</span><span class="info-value">' + (tour.bestSeason || '全年皆宜') + '</span></div>' +
             '</div>' +
             
             '<div class="section">' +
             '<h2>✨ 行程亮點</h2>' +
-            '<div style="margin-top: 15px;">' + highlightsHtml + '</div>' +
+            '<div style="margin-top: 15px;">' + (highlightsHtml || '精彩景點') + '</div>' +
             '</div>' +
             
             '<div class="section">' +
             '<h2>📋 每日行程</h2>' +
-            itineraryHtml +
+            (itineraryHtml || '<p>精彩行程規劃中</p>') +
             '</div>' +
             
             '<div class="section">' +
             '<h2>💡 旅遊提醒</h2>' +
-            '<ul style="margin-left: 20px;">' + tipsHtml + '</ul>' +
+            '<ul style="margin-left: 20px;">' + (tipsHtml || '<li>祝您旅途愉快</li>') + '</ul>' +
             '</div>' +
             
             '<div class="footer">' +
@@ -133,14 +167,12 @@ router.get('/tour/:id/pdf', async (req, res) => {
             
             '</body></html>';
         
-        // 設定 Content-Type 為 HTML（讓瀏覽器可以列印成 PDF）
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(tour.name) + '.html"');
         res.send(html);
         
     } catch (error) {
-        logger.error('PDF export error:', error);
-        res.status(500).json({ error: '匯出失敗' });
+        logger.error('PDF export error: ' + error.message);
+        res.status(500).send('<h1>匯出失敗</h1><p>' + error.message + '</p>');
     }
 });
 
@@ -169,7 +201,7 @@ router.get('/seed', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: `成功新增 ${result.length} 筆活動資料（高雄+全台+海外）` 
+            message: `成功新增 ${result.length} 筆活動資料` 
         });
     } catch (error) {
         logger.error('Seed error:', error);
