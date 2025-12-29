@@ -9,6 +9,7 @@ const groupService = require('../services/groupService');
 const flexMessageBuilder = require('../linebot/flexMessageBuilder');
 const richMenuService = require('../linebot/richMenuService');
 const tourPlanService = require('../services/tourPlanService');
+const healthReminderService = require('../services/healthReminderService');
 const { User, ConversationState, Activity } = require('../models');
 
 async function handleFollow(event, client) {
@@ -22,7 +23,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」看精選活動\n☁️ 輸入「天氣」查看天氣預報' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」看精選活動\n☁️ 輸入「天氣」查看天氣預報\n💊 輸入「健康」管理用藥回診' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -42,8 +43,56 @@ async function handleTextMessage(event, client) {
         var user = await userService.getOrCreateUser(userId, client);
         await userService.updateLastActive(user.id);
 
+        // 檢查對話狀態
         var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
-        if (conversationState && conversationState.currentFlow) {
+        
+        // 處理健康提醒輸入模式
+        if (conversationState && conversationState.currentFlow === 'add_appointment') {
+            var parsed = healthReminderService.parseAppointmentInput(text);
+            if (parsed) {
+                await healthReminderService.addAppointment(user.id, parsed);
+                await conversationState.update({ currentFlow: null, flowData: null });
+                var response = { 
+                    type: 'text', 
+                    text: '✅ 已新增回診提醒！\n\n🏥 ' + parsed.hospitalName + (parsed.department ? ' ' + parsed.department : '') + '\n📅 ' + parsed.date + '\n\n輸入「健康」查看所有提醒' 
+                };
+                await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+                return;
+            } else {
+                var response = { type: 'text', text: '❓ 格式不正確\n\n請輸入：日期 醫院 科別\n例如：1/15 高雄長庚 心臟科\n\n或輸入「取消」返回' };
+                if (text === '取消') {
+                    await conversationState.update({ currentFlow: null, flowData: null });
+                    response = { type: 'text', text: '已取消新增回診提醒' };
+                }
+                await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+                return;
+            }
+        }
+        
+        if (conversationState && conversationState.currentFlow === 'add_medication') {
+            var parsed = healthReminderService.parseMedicationInput(text);
+            if (parsed) {
+                await healthReminderService.addMedication(user.id, parsed);
+                await conversationState.update({ currentFlow: null, flowData: null });
+                var response = { 
+                    type: 'text', 
+                    text: '✅ 已新增用藥提醒！\n\n💊 ' + parsed.medicationName + '\n⏰ ' + parsed.reminderTimes.join(', ') + '\n\n輸入「健康」查看所有提醒' 
+                };
+                await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+                return;
+            } else {
+                var response = { type: 'text', text: '❓ 格式不正確\n\n請輸入：藥名 時間\n例如：阿斯匹靈 早上8點\n\n或輸入「取消」返回' };
+                if (text === '取消') {
+                    await conversationState.update({ currentFlow: null, flowData: null });
+                    response = { type: 'text', text: '已取消新增用藥提醒' };
+                }
+                await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+                return;
+            }
+        }
+
+        // 其他對話流程
+        if (conversationState && conversationState.currentFlow && conversationState.currentFlow !== 'add_appointment' && conversationState.currentFlow !== 'add_medication') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
 
@@ -267,8 +316,8 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 健康 ==========
-    if (matchKeywords(lowerText, ['健康', '用藥', '回診', '吃藥'])) {
-        return flexMessageBuilder.buildHealthMenu(user);
+    if (matchKeywords(lowerText, ['健康', '用藥', '回診', '吃藥', '提醒'])) {
+        return await flexMessageBuilder.buildHealthMenu(user);
     }
 
     // ========== 家人 ==========
@@ -285,7 +334,7 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         var hour = new Date().getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊\n\n🌍 輸入「日本5天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」精選活動\n☁️ 輸入「天氣」查看天氣' };
+        return { type: 'text', text: greeting + '！😊\n\n🌍 輸入「日本5天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n💡 輸入「今日推薦」精選活動\n☁️ 輸入「天氣」查看天氣\n💊 輸入「健康」管理提醒' };
     }
 
     // ========== 幫助 ==========
@@ -304,7 +353,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n📋 我的行程 - 查看收藏\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n📋 我的行程 - 查看收藏\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -490,19 +539,37 @@ async function handlePostback(event, client) {
                 break;
 
             case 'health_menu':
-                response = flexMessageBuilder.buildHealthMenu(user);
+                response = await flexMessageBuilder.buildHealthMenu(user);
+                break;
+
+            case 'add_appointment':
+                // 進入新增回診流程
+                var [convState, created] = await ConversationState.findOrCreate({
+                    where: { userId: user.id },
+                    defaults: { userId: user.id }
+                });
+                await convState.update({ currentFlow: 'add_appointment', flowData: {} });
+                response = { 
+                    type: 'text', 
+                    text: '🏥 新增回診提醒\n\n請輸入回診資訊：\n日期 醫院 科別\n\n例如：1/15 高雄長庚 心臟科\n\n或輸入「取消」返回' 
+                };
+                break;
+
+            case 'add_medication':
+                // 進入新增用藥流程
+                var [convState2, created2] = await ConversationState.findOrCreate({
+                    where: { userId: user.id },
+                    defaults: { userId: user.id }
+                });
+                await convState2.update({ currentFlow: 'add_medication', flowData: {} });
+                response = { 
+                    type: 'text', 
+                    text: '💊 新增用藥提醒\n\n請輸入用藥資訊：\n藥名 服藥時間\n\n例如：阿斯匹靈 早上8點\n例如：降血壓藥 早晚\n\n或輸入「取消」返回' 
+                };
                 break;
 
             case 'family_menu':
                 response = flexMessageBuilder.buildFamilyMenu(user);
-                break;
-
-            case 'add_appointment':
-                response = { type: 'text', text: '🏥 新增回診提醒\n\n請輸入回診日期和醫院名稱：\n\n例如：1/15 高雄長庚 心臟科' };
-                break;
-
-            case 'add_medication':
-                response = { type: 'text', text: '💊 新增用藥提醒\n\n請輸入藥名和服藥時間：\n\n例如：阿斯匹靈 早上8點' };
                 break;
 
             case 'invite_family':
@@ -536,7 +603,7 @@ async function handlePostback(event, client) {
                 break;
 
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n📋 我的行程\n💡 今日推薦' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n📋 我的行程\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {

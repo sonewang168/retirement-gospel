@@ -404,7 +404,6 @@ function buildWeatherCard(weather) {
         };
     }
 
-    // 建立未來預報區塊
     var forecastBoxes = [];
     if (weather.forecast && weather.forecast.length > 0) {
         forecastBoxes = weather.forecast.map(function(day) {
@@ -423,10 +422,8 @@ function buildWeatherCard(weather) {
         });
     }
 
-    // 活動建議文字
     var adviceText = (weather.advice || ['適合出遊']).join('\n');
 
-    // 風向文字
     var windText = weather.windSpeed + ' m/s';
     if (weather.windDir) {
         windText = weather.windDir + '風 ' + weather.windSpeed + ' m/s';
@@ -553,7 +550,33 @@ function buildWeatherCard(weather) {
     };
 }
 
-function buildHealthMenu(user) {
+async function buildHealthMenu(user) {
+    var healthReminderService = require('../services/healthReminderService');
+    
+    var appointments = [];
+    var medications = [];
+    
+    try {
+        appointments = await healthReminderService.getUserAppointments(user.id);
+        medications = await healthReminderService.getUserMedications(user.id);
+    } catch (err) {
+        // 忽略錯誤，使用空陣列
+    }
+    
+    var appointmentText = '目前沒有回診提醒';
+    if (appointments.length > 0) {
+        appointmentText = appointments.slice(0, 3).map(function(a) {
+            return '• ' + a.appointmentDate + ' ' + a.hospitalName + (a.department ? ' ' + a.department : '');
+        }).join('\n');
+    }
+    
+    var medicationText = '目前沒有用藥提醒';
+    if (medications.length > 0) {
+        medicationText = medications.slice(0, 3).map(function(m) {
+            return '• ' + m.medicationName + ' (' + (m.reminderTimes || []).join(', ') + ')';
+        }).join('\n');
+    }
+    
     return {
         type: 'flex',
         altText: '健康管理',
@@ -574,14 +597,14 @@ function buildHealthMenu(user) {
                 type: 'box',
                 layout: 'vertical',
                 contents: [
-                    { type: 'text', text: '🏥 即將到來的回診', weight: 'bold', size: 'md', color: '#27AE60' },
-                    { type: 'text', text: '目前沒有設定回診提醒', size: 'sm', color: '#888888', margin: 'sm' },
+                    { type: 'text', text: '🏥 回診提醒 (' + appointments.length + ')', weight: 'bold', size: 'md', color: '#27AE60' },
+                    { type: 'text', text: appointmentText, size: 'sm', color: '#666666', margin: 'sm', wrap: true },
                     { type: 'separator', margin: 'lg' },
-                    { type: 'text', text: '💊 用藥提醒', weight: 'bold', size: 'md', color: '#27AE60', margin: 'lg' },
-                    { type: 'text', text: '目前沒有設定用藥提醒', size: 'sm', color: '#888888', margin: 'sm' },
+                    { type: 'text', text: '💊 用藥提醒 (' + medications.length + ')', weight: 'bold', size: 'md', color: '#27AE60', margin: 'lg' },
+                    { type: 'text', text: medicationText, size: 'sm', color: '#666666', margin: 'sm', wrap: true },
                     { type: 'separator', margin: 'lg' },
-                    { type: 'button', action: { type: 'postback', label: '➕ 新增回診提醒', data: 'action=add_appointment' }, style: 'primary', color: '#27AE60', margin: 'lg' },
-                    { type: 'button', action: { type: 'postback', label: '➕ 新增用藥提醒', data: 'action=add_medication' }, style: 'secondary', margin: 'sm' }
+                    { type: 'button', action: { type: 'postback', label: '➕ 新增回診', data: 'action=add_appointment' }, style: 'primary', color: '#27AE60', margin: 'lg', height: 'sm' },
+                    { type: 'button', action: { type: 'postback', label: '➕ 新增用藥', data: 'action=add_medication' }, style: 'secondary', margin: 'sm', height: 'sm' }
                 ],
                 paddingAll: 'lg'
             }
@@ -702,8 +725,8 @@ function buildHelpMenu() {
                     { type: 'text', text: '☁️ 天氣查詢', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
                     { type: 'text', text: '輸入「天氣」或「東京天氣」\n支援全球 200+ 城市', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
-                    { type: 'text', text: '💡 今日推薦', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
-                    { type: 'text', text: '每日精選活動推薦', size: 'sm', color: '#666666', margin: 'sm' },
+                    { type: 'text', text: '💊 健康管理', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
+                    { type: 'text', text: '回診提醒、用藥提醒', size: 'sm', color: '#666666', margin: 'sm' },
                     { type: 'separator', margin: 'lg' },
                     { type: 'text', text: '🔍 找活動', weight: 'bold', size: 'md', color: '#E74C3C', margin: 'lg' },
                     { type: 'text', text: '依分類探索活動', size: 'sm', color: '#666666', margin: 'sm' }
