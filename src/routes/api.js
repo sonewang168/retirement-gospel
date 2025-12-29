@@ -8,23 +8,39 @@ const logger = require('../utils/logger');
 const { User, Activity, TourPlan, HealthReminder } = require('../models');
 
 // ============================================
-// 資料庫修正 API（完整同步所有表）
+// 資料庫修正 API（強制重建）
 // ============================================
 
 router.get('/fix-db', async (req, res) => {
     try {
         const { sequelize } = require('../models');
+        const force = req.query.force === 'true';
         
-        logger.info('開始同步所有資料庫結構...');
+        logger.info('開始同步資料庫結構... force=' + force);
         
-        await sequelize.sync({ alter: true });
-        
-        logger.info('所有資料庫表同步完成');
-        
-        res.json({ 
-            success: true, 
-            message: '所有資料庫結構已同步完成！' 
-        });
+        if (force) {
+            // 強制重建所有表（會清除資料）
+            await sequelize.sync({ force: true });
+            logger.info('所有資料表已強制重建');
+            res.json({ 
+                success: true, 
+                message: '所有資料表已強制重建！請執行 /api/seed?force=true 匯入活動資料' 
+            });
+        } else {
+            // 嘗試溫和同步
+            try {
+                await sequelize.sync({ alter: true });
+                res.json({ success: true, message: '資料庫結構已同步！' });
+            } catch (alterError) {
+                // 如果 alter 失敗，提示用戶使用 force
+                logger.error('Alter failed:', alterError.message);
+                res.json({ 
+                    success: false, 
+                    message: '欄位類型衝突，請使用 /api/fix-db?force=true 強制重建（注意：會清除資料）',
+                    error: alterError.message
+                });
+            }
+        }
     } catch (error) {
         logger.error('Fix DB error:', error);
         res.json({ success: false, error: error.message });
