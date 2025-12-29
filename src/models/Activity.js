@@ -45,84 +45,32 @@ module.exports = (sequelize) => {
         },
         difficultyLevel: {
             type: DataTypes.STRING(20),
-            field: 'difficulty_level',
-            defaultValue: 'easy'
+            defaultValue: 'easy',
+            field: 'difficulty_level'
         },
         estimatedDuration: {
             type: DataTypes.INTEGER,
-            field: 'estimated_duration',
-            comment: '預估時間（分鐘）'
+            field: 'estimated_duration'
         },
         costMin: {
             type: DataTypes.INTEGER,
-            field: 'cost_min',
-            defaultValue: 0
+            defaultValue: 0,
+            field: 'cost_min'
         },
         costMax: {
             type: DataTypes.INTEGER,
-            field: 'cost_max',
-            defaultValue: 0
-        },
-        costDescription: {
-            type: DataTypes.STRING(200),
-            field: 'cost_description'
-        },
-        openingHours: {
-            type: DataTypes.JSONB,
-            field: 'opening_hours'
-        },
-        contactPhone: {
-            type: DataTypes.STRING(20),
-            field: 'contact_phone'
-        },
-        website: {
-            type: DataTypes.STRING(500)
+            defaultValue: 0,
+            field: 'cost_max'
         },
         isIndoor: {
             type: DataTypes.BOOLEAN,
-            field: 'is_indoor',
-            defaultValue: false
+            defaultValue: false,
+            field: 'is_indoor'
         },
         isAccessible: {
             type: DataTypes.BOOLEAN,
-            field: 'is_accessible',
-            defaultValue: true
-        },
-        accessibilityInfo: {
-            type: DataTypes.TEXT,
-            field: 'accessibility_info'
-        },
-        parkingAvailable: {
-            type: DataTypes.BOOLEAN,
-            field: 'parking_available',
-            defaultValue: false
-        },
-        publicTransitInfo: {
-            type: DataTypes.TEXT,
-            field: 'public_transit_info'
-        },
-        bestWeather: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
-            field: 'best_weather',
-            defaultValue: ['sunny', 'cloudy']
-        },
-        bestSeason: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
-            field: 'best_season',
-            defaultValue: ['spring', 'autumn']
-        },
-        minAqiRequired: {
-            type: DataTypes.INTEGER,
-            field: 'min_aqi_required',
-            defaultValue: 0
-        },
-        images: {
-            type: DataTypes.ARRAY(DataTypes.STRING),
-            defaultValue: []
-        },
-        thumbnailUrl: {
-            type: DataTypes.STRING(500),
-            field: 'thumbnail_url'
+            defaultValue: true,
+            field: 'is_accessible'
         },
         tags: {
             type: DataTypes.ARRAY(DataTypes.STRING),
@@ -132,43 +80,20 @@ module.exports = (sequelize) => {
             type: DataTypes.DECIMAL(2, 1),
             defaultValue: 4.0
         },
-        reviewCount: {
-            type: DataTypes.INTEGER,
-            field: 'review_count',
-            defaultValue: 0
-        },
-        visitCount: {
-            type: DataTypes.INTEGER,
-            field: 'visit_count',
-            defaultValue: 0
-        },
         isFeatured: {
             type: DataTypes.BOOLEAN,
-            field: 'is_featured',
-            defaultValue: false
+            defaultValue: false,
+            field: 'is_featured'
         },
         isActive: {
             type: DataTypes.BOOLEAN,
-            field: 'is_active',
-            defaultValue: true
-        },
-        source: {
-            type: DataTypes.STRING(100)
-        },
-        sourceUrl: {
-            type: DataTypes.STRING(500),
-            field: 'source_url'
-        },
-        lastVerifiedAt: {
-            type: DataTypes.DATE,
-            field: 'last_verified_at'
+            defaultValue: true,
+            field: 'is_active'
         }
     }, {
         tableName: 'activities',
         underscored: true,
-        timestamps: true,
-        createdAt: 'created_at',
-        updatedAt: 'updated_at'
+        timestamps: true
     });
 
     return Activity;

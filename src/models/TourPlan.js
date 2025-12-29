@@ -1,5 +1,5 @@
 /**
- * AI 生成行程收藏
+ * TourPlan Model
  */
 const { DataTypes } = require('sequelize');
 
@@ -16,20 +16,31 @@ module.exports = (sequelize) => {
             field: 'user_id'
         },
         name: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(200),
             allowNull: false
         },
         country: {
-            type: DataTypes.STRING,
-            allowNull: false
+            type: DataTypes.STRING(100)
         },
         days: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            defaultValue: 5
         },
         source: {
-            type: DataTypes.STRING,
+            type: DataTypes.STRING(50),
             defaultValue: 'AI'
+        },
+        highlights: {
+            type: DataTypes.ARRAY(DataTypes.STRING),
+            defaultValue: []
+        },
+        itinerary: {
+            type: DataTypes.JSONB,
+            defaultValue: []
+        },
+        tips: {
+            type: DataTypes.ARRAY(DataTypes.STRING),
+            defaultValue: []
         },
         estimatedCostMin: {
             type: DataTypes.INTEGER,
@@ -39,32 +50,9 @@ module.exports = (sequelize) => {
             type: DataTypes.INTEGER,
             field: 'estimated_cost_max'
         },
-        highlights: {
-            type: DataTypes.JSON,
-            defaultValue: []
-        },
-        itinerary: {
-            type: DataTypes.JSON,
-            defaultValue: []
-        },
-        tips: {
-            type: DataTypes.JSON,
-            defaultValue: []
-        },
-        bestSeason: {
-            type: DataTypes.STRING,
-            field: 'best_season'
-        },
         status: {
-            type: DataTypes.ENUM('saved', 'planned', 'completed'),
-            defaultValue: 'saved'
-        },
-        plannedDate: {
-            type: DataTypes.DATE,
-            field: 'planned_date'
-        },
-        note: {
-            type: DataTypes.TEXT
+            type: DataTypes.STRING(20),
+            defaultValue: 'draft'
         }
     }, {
         tableName: 'tour_plans',
