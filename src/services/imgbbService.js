@@ -18,10 +18,12 @@ async function uploadImage(imageData, name) {
             return { success: false, error: 'API Key 未設定' };
         }
 
+        logger.info('IMGBB_API_KEY length: ' + IMGBB_API_KEY.length);
+
         var base64Image;
         if (Buffer.isBuffer(imageData)) {
             base64Image = imageData.toString('base64');
-            logger.info('Image buffer size: ' + imageData.length + ' bytes');
+            logger.info('Image buffer size: ' + imageData.length + ' bytes, base64 length: ' + base64Image.length);
         } else if (typeof imageData === 'string') {
             if (imageData.startsWith('data:')) {
                 base64Image = imageData.split(',')[1];
@@ -32,17 +34,27 @@ async function uploadImage(imageData, name) {
             return { success: false, error: '無效的圖片格式' };
         }
 
-        var formData = new URLSearchParams();
-        formData.append('key', IMGBB_API_KEY);
-        formData.append('image', base64Image);
-        if (name) {
-            formData.append('name', name);
+        // 檢查大小限制 (ImgBB 限制 32MB)
+        var sizeInMB = (base64Image.length * 0.75) / (1024 * 1024);
+        logger.info('Estimated image size: ' + sizeInMB.toFixed(2) + ' MB');
+        
+        if (sizeInMB > 32) {
+            return { success: false, error: '圖片太大，超過 32MB 限制' };
         }
 
         logger.info('Uploading to ImgBB...');
-        var response = await axios.post(IMGBB_UPLOAD_URL, formData, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 60000
+        
+        // 使用 POST with URL params for key, body for image
+        var response = await axios({
+            method: 'post',
+            url: IMGBB_UPLOAD_URL + '?key=' + IMGBB_API_KEY,
+            data: 'image=' + encodeURIComponent(base64Image) + (name ? '&name=' + encodeURIComponent(name) : ''),
+            headers: { 
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            timeout: 60000,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
         });
 
         if (response.data && response.data.success) {
@@ -61,6 +73,10 @@ async function uploadImage(imageData, name) {
 
     } catch (error) {
         logger.error('ImgBB upload error:', error.message || error);
+        if (error.response) {
+            logger.error('ImgBB response status:', error.response.status);
+            logger.error('ImgBB response data:', JSON.stringify(error.response.data));
+        }
         return { success: false, error: error.message || '上傳錯誤' };
     }
 }
@@ -78,6 +94,8 @@ async function uploadFromLine(client, messageId, name) {
             logger.error('LINE_CHANNEL_ACCESS_TOKEN not configured');
             return { success: false, error: 'LINE Token 未設定' };
         }
+
+        logger.info('LINE Token length: ' + channelAccessToken.length);
 
         // 直接用 axios 從 LINE API 取得圖片
         var response = await axios.get(
@@ -106,6 +124,7 @@ async function uploadFromLine(client, messageId, name) {
         logger.error('Upload from LINE error:', error.message || JSON.stringify(error));
         if (error.response) {
             logger.error('LINE API response status:', error.response.status);
+            logger.error('LINE API response data:', error.response.data ? error.response.data.toString().substring(0, 200) : 'no data');
         }
         return { success: false, error: error.message || '取得圖片失敗' };
     }
