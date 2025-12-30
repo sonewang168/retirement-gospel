@@ -1,5 +1,5 @@
 /**
- * User Model（達人等級版）
+ * User Model（欄位映射版）
  */
 const { DataTypes } = require('sequelize');
 
@@ -13,15 +13,18 @@ module.exports = (sequelize) => {
         lineUserId: {
             type: DataTypes.STRING,
             allowNull: false,
-            unique: true
+            unique: true,
+            field: 'line_user_id'
         },
         displayName: {
             type: DataTypes.STRING,
-            allowNull: true
+            allowNull: true,
+            field: 'display_name'
         },
         pictureUrl: {
             type: DataTypes.TEXT,
-            allowNull: true
+            allowNull: true,
+            field: 'picture_url'
         },
         city: {
             type: DataTypes.STRING,
@@ -33,24 +36,28 @@ module.exports = (sequelize) => {
         },
         notificationEnabled: {
             type: DataTypes.BOOLEAN,
-            defaultValue: true
+            defaultValue: true,
+            field: 'notification_enabled'
         },
         morningPushTime: {
             type: DataTypes.STRING,
-            defaultValue: '06:00'
+            defaultValue: '06:00',
+            field: 'morning_push_time'
         },
-        // 達人系統
         visitedCount: {
             type: DataTypes.INTEGER,
-            defaultValue: 0
+            defaultValue: 0,
+            field: 'visited_count'
         },
         expertLevel: {
             type: DataTypes.INTEGER,
-            defaultValue: 0
+            defaultValue: 0,
+            field: 'expert_level'
         },
         expertTitle: {
             type: DataTypes.STRING,
-            defaultValue: '新手旅人'
+            defaultValue: '新手旅人',
+            field: 'expert_title'
         },
         badges: {
             type: DataTypes.ARRAY(DataTypes.STRING),
@@ -58,16 +65,18 @@ module.exports = (sequelize) => {
         },
         totalPoints: {
             type: DataTypes.INTEGER,
-            defaultValue: 0
+            defaultValue: 0,
+            field: 'total_points'
         },
-        // 統計
         totalTours: {
             type: DataTypes.INTEGER,
-            defaultValue: 0
+            defaultValue: 0,
+            field: 'total_tours'
         },
         lastActiveAt: {
             type: DataTypes.DATE,
-            defaultValue: DataTypes.NOW
+            defaultValue: DataTypes.NOW,
+            field: 'last_active_at'
         },
         birthday: {
             type: DataTypes.DATEONLY,
@@ -75,15 +84,18 @@ module.exports = (sequelize) => {
         },
         onboardingCompleted: {
             type: DataTypes.BOOLEAN,
-            defaultValue: false
+            defaultValue: false,
+            field: 'onboarding_completed'
         },
         referralCode: {
             type: DataTypes.STRING,
-            allowNull: true
+            allowNull: true,
+            field: 'referral_code'
         }
     }, {
         tableName: 'users',
-        timestamps: true
+        timestamps: true,
+        underscored: true
     });
 
     return User;
