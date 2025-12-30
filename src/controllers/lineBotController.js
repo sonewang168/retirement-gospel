@@ -1194,7 +1194,11 @@ async function handleImageMessage(event, client) {
 
         // 一般照片訊息
         logger.info('General image message');
-        await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n在「想去清單」點選景點，可以上傳打卡照片喔！' }] });
+        try {
+            await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n在「想去清單」點選景點的「📸 +10分」按鈕，可以上傳打卡照片喔！' }] });
+        } catch (replyErr) {
+            logger.error('General image reply error:', replyErr.message);
+        }
     } catch (error) {
         logger.error('Image error:', error.message || error);
         if (error.response) {
