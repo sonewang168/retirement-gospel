@@ -20,6 +20,7 @@ async function uploadImage(imageData, name) {
         var base64Image;
         if (Buffer.isBuffer(imageData)) {
             base64Image = imageData.toString('base64');
+            logger.info('Image buffer size: ' + imageData.length + ' bytes');
         } else if (typeof imageData === 'string') {
             if (imageData.startsWith('data:')) {
                 base64Image = imageData.split(',')[1];
@@ -37,9 +38,10 @@ async function uploadImage(imageData, name) {
             formData.append('name', name);
         }
 
+        logger.info('Uploading to ImgBB...');
         var response = await axios.post(IMGBB_UPLOAD_URL, formData, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 30000
+            timeout: 60000
         });
 
         if (response.data && response.data.success) {
@@ -52,12 +54,13 @@ async function uploadImage(imageData, name) {
                 deleteUrl: response.data.data.delete_url
             };
         } else {
+            logger.error('ImgBB response error:', JSON.stringify(response.data));
             return { success: false, error: '上傳失敗' };
         }
 
     } catch (error) {
-        logger.error('ImgBB upload error:', error.message);
-        return { success: false, error: error.message };
+        logger.error('ImgBB upload error:', error.message || error);
+        return { success: false, error: error.message || '上傳錯誤' };
     }
 }
 
@@ -66,17 +69,47 @@ async function uploadImage(imageData, name) {
  */
 async function uploadFromLine(client, messageId, name) {
     try {
+        logger.info('Getting image from LINE, messageId: ' + messageId);
+        
+        // 從 LINE 取得圖片內容
         var stream = await client.getMessageContent(messageId);
+        
+        // 收集所有 chunks
         var chunks = [];
-        for await (var chunk of stream) {
-            chunks.push(chunk);
-        }
-        var buffer = Buffer.concat(chunks);
-        var result = await uploadImage(buffer, name || 'checkin_' + messageId);
-        return result;
+        
+        return new Promise(function(resolve, reject) {
+            stream.on('data', function(chunk) {
+                chunks.push(chunk);
+            });
+            
+            stream.on('end', async function() {
+                try {
+                    var buffer = Buffer.concat(chunks);
+                    logger.info('Got image from LINE, size: ' + buffer.length + ' bytes');
+                    
+                    if (buffer.length === 0) {
+                        resolve({ success: false, error: '圖片內容為空' });
+                        return;
+                    }
+                    
+                    // 上傳到 ImgBB
+                    var result = await uploadImage(buffer, name || 'checkin_' + messageId);
+                    resolve(result);
+                } catch (err) {
+                    logger.error('Process image error:', err.message || err);
+                    resolve({ success: false, error: err.message || '處理圖片錯誤' });
+                }
+            });
+            
+            stream.on('error', function(err) {
+                logger.error('Stream error:', err.message || err);
+                resolve({ success: false, error: err.message || '串流錯誤' });
+            });
+        });
+
     } catch (error) {
-        logger.error('Upload from LINE error:', error.message);
-        return { success: false, error: error.message };
+        logger.error('Upload from LINE error:', error.message || error);
+        return { success: false, error: error.message || '取得圖片失敗' };
     }
 }
 
