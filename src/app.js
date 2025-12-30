@@ -50,10 +50,13 @@ async function ensureTables() {
         await sequelize.authenticate();
         console.log('✅ 資料庫連線成功');
 
+        // 先刪除舊的 family_links 表（結構可能不對）
+        console.log('📦 重建 family_links 表...');
+        await sequelize.query('DROP TABLE IF EXISTS family_links CASCADE;');
+
         // 建立 family_links 表
-        console.log('📦 檢查 family_links 表...');
         await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS family_links (
+            CREATE TABLE family_links (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 elder_id UUID NOT NULL,
                 family_id UUID NOT NULL,
@@ -69,7 +72,12 @@ async function ensureTables() {
                 UNIQUE(elder_id, family_id)
             );
         `);
-        console.log('✅ family_links 表已確認');
+        console.log('✅ family_links 表建立完成');
+
+        // 建立索引
+        await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_elder ON family_links(elder_id);');
+        await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_family ON family_links(family_id);');
+        console.log('✅ 索引建立完成');
 
         // users 表新增 referral_code 欄位
         try {
@@ -88,7 +96,7 @@ async function ensureTables() {
 
     } catch (error) {
         console.error('❌ Migration 錯誤:', error.message);
-        await sequelize.close();
+        try { await sequelize.close(); } catch(e) {}
         throw error;
     }
 }
