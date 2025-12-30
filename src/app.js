@@ -7,13 +7,7 @@ const path = require('path');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-const logger = require('./utils/logger');
-const { sequelize } = require('./models');
-const lineBotRouter = require('./routes/lineBot');
-const apiRouter = require('./routes/api');
-const webRouter = require('./routes/web');
-const liffRouter = require('./routes/liff');
-const schedulerService = require('./services/schedulerService');
+const { Sequelize } = require('sequelize');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,7 +19,6 @@ app.use(helmet({
     contentSecurityPolicy: false
 }));
 app.use(cors());
-app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
 // LINE Webhook 需要 raw body
 app.use('/webhook', express.raw({ type: 'application/json' }));
@@ -42,39 +35,23 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
 // ============================================
-// 路由設定
+// 自動 Migration - 在載入 models 之前執行
 // ============================================
-app.use('/webhook', lineBotRouter);
-app.use('/api', apiRouter);
-app.use('/liff', liffRouter);
-app.use('/', webRouter);
-
-// ============================================
-// 錯誤處理
-// ============================================
-app.use((req, res, next) => {
-    res.status(404).render('error', {
-        title: '404',
-        message: '找不到頁面'
+async function ensureTables() {
+    const sequelize = new Sequelize(process.env.DATABASE_URL, {
+        dialect: 'postgres',
+        dialectOptions: {
+            ssl: { require: true, rejectUnauthorized: false }
+        },
+        logging: false
     });
-});
 
-app.use((err, req, res, next) => {
-    logger.error('Server error:', err);
-    res.status(500).render('error', {
-        title: '500',
-        message: '伺服器錯誤'
-    });
-});
-
-// ============================================
-// 自動 Migration - 建立缺少的表格和欄位
-// ============================================
-async function autoMigrate() {
     try {
-        logger.info('檢查資料庫結構...');
+        await sequelize.authenticate();
+        console.log('✅ 資料庫連線成功');
 
         // 建立 family_links 表
+        console.log('📦 檢查 family_links 表...');
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS family_links (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -92,34 +69,27 @@ async function autoMigrate() {
                 UNIQUE(elder_id, family_id)
             );
         `);
-
-        // 建立索引
-        try {
-            await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_elder ON family_links(elder_id);');
-            await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_family ON family_links(family_id);');
-        } catch (e) {
-            // 忽略索引已存在錯誤
-        }
+        console.log('✅ family_links 表已確認');
 
         // users 表新增 referral_code 欄位
         try {
             await sequelize.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(10);');
-        } catch (e) {
-            // 欄位可能已存在
-        }
+            console.log('✅ referral_code 欄位已確認');
+        } catch (e) {}
 
         // user_wishlists 表新增打卡照片欄位
         try {
             await sequelize.query('ALTER TABLE user_wishlists ADD COLUMN IF NOT EXISTS check_in_photo_url TEXT;');
-        } catch (e) {
-            // 欄位可能已存在
-        }
+            console.log('✅ check_in_photo_url 欄位已確認');
+        } catch (e) {}
 
-        logger.info('資料庫結構檢查完成');
+        await sequelize.close();
+        console.log('📦 資料庫結構檢查完成\n');
 
     } catch (error) {
-        logger.error('自動 Migration 錯誤:', error.message);
-        // 不中斷啟動，繼續執行
+        console.error('❌ Migration 錯誤:', error.message);
+        await sequelize.close();
+        throw error;
     }
 }
 
@@ -128,12 +98,46 @@ async function autoMigrate() {
 // ============================================
 async function startServer() {
     try {
+        // 先確保表格存在
+        await ensureTables();
+
+        // 現在才載入 models 和其他模組
+        const logger = require('./utils/logger');
+        const { sequelize } = require('./models');
+        const lineBotRouter = require('./routes/lineBot');
+        const apiRouter = require('./routes/api');
+        const webRouter = require('./routes/web');
+        const liffRouter = require('./routes/liff');
+        const schedulerService = require('./services/schedulerService');
+
+        // 設定 morgan
+        app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
+
+        // 路由設定
+        app.use('/webhook', lineBotRouter);
+        app.use('/api', apiRouter);
+        app.use('/liff', liffRouter);
+        app.use('/', webRouter);
+
+        // 錯誤處理
+        app.use((req, res, next) => {
+            res.status(404).render('error', {
+                title: '404',
+                message: '找不到頁面'
+            });
+        });
+
+        app.use((err, req, res, next) => {
+            logger.error('Server error:', err);
+            res.status(500).render('error', {
+                title: '500',
+                message: '伺服器錯誤'
+            });
+        });
+
         // 連接資料庫
         await sequelize.authenticate();
         logger.info('資料庫連線成功');
-
-        // 執行自動 Migration
-        await autoMigrate();
 
         // 同步資料庫
         await sequelize.sync({ alter: false });
@@ -150,7 +154,7 @@ async function startServer() {
         });
 
     } catch (error) {
-        logger.error('啟動失敗:', error);
+        console.error('啟動失敗:', error);
         process.exit(1);
     }
 }
