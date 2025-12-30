@@ -1,5 +1,5 @@
 /**
- * API 路由（完整版 + 管理API）
+ * API 路由（完整版）
  */
 const express = require('express');
 const router = express.Router();
@@ -9,7 +9,6 @@ const { User, Activity, TourPlan, HealthReminder, UserWishlist } = require('../m
 // ============================================
 // 資料庫修正 API
 // ============================================
-
 router.get('/fix-db', async (req, res) => {
     try {
         const { sequelize } = require('../models');
@@ -31,9 +30,8 @@ router.get('/fix-db', async (req, res) => {
 });
 
 // ============================================
-// 種子資料 API
+// 種子資料 API（修正外鍵約束）
 // ============================================
-
 router.get('/seed', async (req, res) => {
     try {
         const force = req.query.force === 'true';
@@ -44,7 +42,11 @@ router.get('/seed', async (req, res) => {
         }
 
         if (force) {
-            await Activity.destroy({ where: {}, truncate: true });
+            // 先刪除關聯的 wishlist（解決外鍵約束）
+            await UserWishlist.destroy({ where: {} });
+            // 再刪除活動
+            await Activity.destroy({ where: {} });
+            logger.info('已清除舊活動資料');
         }
 
         const { allActivities } = require('../data/seedActivities');
@@ -60,7 +62,6 @@ router.get('/seed', async (req, res) => {
 // ============================================
 // 統計 API
 // ============================================
-
 router.get('/stats', async (req, res) => {
     try {
         const userCount = await User.count();
@@ -82,7 +83,6 @@ router.get('/stats', async (req, res) => {
 // ============================================
 // 活動 API
 // ============================================
-
 router.get('/activities', async (req, res) => {
     try {
         const { category, city, limit = 20, offset = 0 } = req.query;
@@ -107,7 +107,6 @@ router.get('/activities', async (req, res) => {
 // ============================================
 // 行程 PDF API
 // ============================================
-
 router.get('/tour/:id/pdf', async (req, res) => {
     try {
         var tour = await TourPlan.findByPk(req.params.id);
@@ -116,6 +115,7 @@ router.get('/tour/:id/pdf', async (req, res) => {
         var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + tour.name + '</title></head><body>';
         html += '<h1>' + tour.name + '</h1>';
         html += '<p>' + tour.country + ' | ' + tour.days + '天</p>';
+        html += '<pre>' + tour.content + '</pre>';
         html += '</body></html>';
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -126,9 +126,8 @@ router.get('/tour/:id/pdf', async (req, res) => {
 });
 
 // ============================================
-// 管理 API（用戶列表）
+// 管理 API
 // ============================================
-
 router.get('/admin/users', async (req, res) => {
     try {
         const users = await User.findAll({
@@ -141,10 +140,6 @@ router.get('/admin/users', async (req, res) => {
         res.json({ data: [] });
     }
 });
-
-// ============================================
-// 管理 API（行程列表）
-// ============================================
 
 router.get('/admin/tours', async (req, res) => {
     try {
@@ -159,10 +154,6 @@ router.get('/admin/tours', async (req, res) => {
     }
 });
 
-// ============================================
-// 管理 API（健康提醒）
-// ============================================
-
 router.get('/admin/reminders', async (req, res) => {
     try {
         const reminders = await HealthReminder.findAll({
@@ -176,10 +167,6 @@ router.get('/admin/reminders', async (req, res) => {
         res.json({ data: [] });
     }
 });
-
-// ============================================
-// 管理 API（想去收藏）
-// ============================================
 
 router.get('/admin/wishlists', async (req, res) => {
     try {
@@ -198,7 +185,6 @@ router.get('/admin/wishlists', async (req, res) => {
 // ============================================
 // 健康狀態 API
 // ============================================
-
 router.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
