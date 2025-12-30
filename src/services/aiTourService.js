@@ -70,7 +70,7 @@ class AITourService {
         return null;
     }
 
-    buildPrompt(destination, days, isDomestic, provider) {
+    buildPrompt(destination, days, isDomestic) {
         var basePrompt = isDomestic
             ? '請為退休族規劃一個台灣「' + destination + '」' + days + '天的輕鬆旅遊行程。'
             : '請為退休族規劃一個「' + destination + '」' + days + '天的輕鬆旅遊行程。';
@@ -101,7 +101,7 @@ class AITourService {
             return null;
         }
 
-        var prompt = this.buildPrompt(destination, days, isDomestic, 'ChatGPT');
+        var prompt = this.buildPrompt(destination, days, isDomestic);
 
         try {
             var response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -127,4 +127,132 @@ class AITourService {
             if (jsonMatch) {
                 var tour = JSON.parse(jsonMatch[0]);
                 tour.source = 'ChatGPT';
-                return tour
+                return tour;
+            }
+            
+            logger.warn('ChatGPT 回應無法解析 JSON');
+            return null;
+        } catch (error) {
+            logger.error('ChatGPT 錯誤:', error.message);
+            return null;
+        }
+    }
+
+    async generateWithGemini(destination, days, isDomestic) {
+        if (!this.geminiKey) {
+            logger.warn('未設定 Gemini API Key');
+            return null;
+        }
+
+        var prompt = this.buildPrompt(destination, days, isDomestic);
+
+        try {
+            var response = await axios.post(
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + this.geminiKey,
+                {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { 
+                        temperature: 0.7, 
+                        maxOutputTokens: 2000 
+                    }
+                },
+                { timeout: 60000 }
+            );
+
+            if (!response.data.candidates || !response.data.candidates[0]) {
+                logger.warn('Gemini 回應無內容');
+                return null;
+            }
+
+            var content = response.data.candidates[0].content.parts[0].text;
+            logger.info('Gemini 2.0 Flash 生成成功');
+
+            var jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                var tour = JSON.parse(jsonMatch[0]);
+                tour.source = 'Gemini 2.0';
+                return tour;
+            }
+            
+            logger.warn('Gemini 回應無法解析 JSON');
+            return null;
+        } catch (error) {
+            logger.error('Gemini 錯誤:', error.message);
+            return null;
+        }
+    }
+
+    async generateTourWithDualAI(text) {
+        var request = this.parseTravelRequest(text);
+        if (!request) return [];
+
+        var destination = request.destination;
+        var days = request.days;
+        var isDomestic = request.isDomestic;
+
+        var tours = [];
+
+        var results = await Promise.allSettled([
+            this.generateWithChatGPT(destination, days, isDomestic),
+            this.generateWithGemini(destination, days, isDomestic)
+        ]);
+
+        var chatgptTour = results[0].status === 'fulfilled' ? results[0].value : null;
+        var geminiTour = results[1].status === 'fulfilled' ? results[1].value : null;
+
+        if (chatgptTour) {
+            chatgptTour.country = isDomestic ? '台灣-' + destination : destination;
+            chatgptTour.days = days;
+            tours.push(chatgptTour);
+        }
+
+        if (geminiTour) {
+            geminiTour.country = isDomestic ? '台灣-' + destination : destination;
+            geminiTour.days = days;
+            tours.push(geminiTour);
+        }
+
+        if (tours.length === 0) {
+            logger.warn('雙AI都失敗，使用預設行程');
+            tours.push({
+                name: destination + days + '天輕旅行',
+                country: isDomestic ? '台灣-' + destination : destination,
+                days: days,
+                estimatedCost: { min: isDomestic ? 5000 : 30000, max: isDomestic ? 15000 : 60000 },
+                highlights: ['經典景點', '在地美食', '輕鬆行程'],
+                itinerary: Array.from({ length: days }, function(_, i) {
+                    return { day: i + 1, title: '第' + (i + 1) + '天', activities: ['探索當地', '品嚐美食', '自由活動'] };
+                }),
+                tips: ['建議提早預訂住宿', '注意天氣變化'],
+                source: '系統預設'
+            });
+        }
+
+        return tours;
+    }
+
+    async saveTourToDb(userId, tour) {
+        try {
+            var saved = await TourPlan.create({
+                userId: userId,
+                name: tour.name || '精彩行程',
+                country: tour.country || '未知',
+                days: tour.days || 5,
+                estimatedCostMin: tour.estimatedCost ? tour.estimatedCost.min : 30000,
+                estimatedCostMax: tour.estimatedCost ? tour.estimatedCost.max : 60000,
+                highlights: tour.highlights || [],
+                itinerary: tour.itinerary || [],
+                tips: tour.tips || [],
+                aiProvider: tour.source || 'AI',
+                source: tour.source || 'AI'
+            });
+            logger.info('行程已儲存 ID: ' + saved.id);
+            return saved.id;
+        } catch (error) {
+            logger.error('儲存行程錯誤:', error.message);
+            return null;
+        }
+    }
+}
+
+module.exports = new AITourService();
