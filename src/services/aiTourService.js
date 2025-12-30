@@ -1,5 +1,5 @@
 /**
- * AI 行程規劃服務（完整版）
+ * AI 行程規劃服務（雙AI + 卡片版）
  */
 const axios = require('axios');
 const logger = require('../utils/logger');
@@ -70,44 +70,41 @@ class AITourService {
         return null;
     }
 
-    buildPrompt(destination, days, isDomestic) {
-        if (isDomestic) {
-            return '請為退休族規劃一個台灣「' + destination + '」' + days + '天的輕鬆旅遊行程。\n\n' +
-                '要求：\n' +
-                '1. 行程節奏要輕鬆，適合50-70歲退休族\n' +
-                '2. 每天景點不超過3-4個\n' +
-                '3. 包含在地美食推薦\n' +
-                '4. 住宿建議（舒適、交通便利）\n' +
-                '5. 預估每人花費（台幣）\n' +
-                '6. 交通方式建議\n' +
-                '7. 注意事項\n\n' +
-                '請用繁體中文回答，用清楚易讀的條列方式呈現，不要用JSON格式。';
-        } else {
-            return '請為退休族規劃一個「' + destination + '」' + days + '天的輕鬆旅遊行程。\n\n' +
-                '要求：\n' +
-                '1. 行程節奏要輕鬆，適合50-70歲退休族\n' +
-                '2. 每天景點不超過3-4個\n' +
-                '3. 包含當地美食推薦\n' +
-                '4. 住宿建議（舒適、交通便利）\n' +
-                '5. 預估每人花費（包含機票、住宿、餐飲、交通、門票）\n' +
-                '6. 注意事項與小提醒\n' +
-                '7. 最佳旅遊季節\n\n' +
-                '請用繁體中文回答，用清楚易讀的條列方式呈現，不要用JSON格式。';
-        }
+    buildPrompt(destination, days, isDomestic, provider) {
+        var basePrompt = isDomestic
+            ? '請為退休族規劃一個台灣「' + destination + '」' + days + '天的輕鬆旅遊行程。'
+            : '請為退休族規劃一個「' + destination + '」' + days + '天的輕鬆旅遊行程。';
+
+        return basePrompt + '\n\n' +
+            '請用以下JSON格式回答（不要有其他文字）：\n' +
+            '{\n' +
+            '  "name": "行程名稱",\n' +
+            '  "country": "' + (isDomestic ? '台灣-' + destination : destination) + '",\n' +
+            '  "days": ' + days + ',\n' +
+            '  "estimatedCost": { "min": 最低預算, "max": 最高預算 },\n' +
+            '  "highlights": ["亮點1", "亮點2", "亮點3"],\n' +
+            '  "itinerary": [\n' +
+            '    { "day": 1, "title": "第一天主題", "activities": ["活動1", "活動2", "活動3"] }\n' +
+            '  ],\n' +
+            '  "tips": ["注意事項1", "注意事項2"]\n' +
+            '}\n\n' +
+            '要求：\n' +
+            '1. 行程輕鬆，適合50-70歲退休族\n' +
+            '2. 每天景點不超過3-4個\n' +
+            '3. 預算用' + (isDomestic ? '台幣' : '台幣，含機票住宿') + '\n' +
+            '4. 只回傳JSON，不要其他文字';
     }
 
     async generateWithChatGPT(destination, days, isDomestic) {
-        if (!this.openaiKey) {
-            throw new Error('未設定 OpenAI API Key');
-        }
+        if (!this.openaiKey) return null;
 
-        var prompt = this.buildPrompt(destination, days, isDomestic);
+        var prompt = this.buildPrompt(destination, days, isDomestic, 'ChatGPT');
 
         try {
             var response = await axios.post('https://api.openai.com/v1/chat/completions', {
                 model: 'gpt-3.5-turbo',
                 messages: [
-                    { role: 'system', content: '你是一位專業的退休族旅遊規劃師，擅長規劃輕鬆、舒適、安全的行程。請直接提供行程內容，不要使用JSON格式。' },
+                    { role: 'system', content: '你是專業旅遊規劃師，只用JSON格式回答。' },
                     { role: 'user', content: prompt }
                 ],
                 max_tokens: 2000,
@@ -123,19 +120,23 @@ class AITourService {
             var content = response.data.choices[0].message.content;
             logger.info('ChatGPT 生成成功');
 
-            return { success: true, content: content, provider: 'ChatGPT' };
+            var jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                var tour = JSON.parse(jsonMatch[0]);
+                tour.source = 'ChatGPT';
+                return tour;
+            }
+            return null;
         } catch (error) {
             logger.error('ChatGPT 錯誤:', error.message);
-            throw error;
+            return null;
         }
     }
 
     async generateWithGemini(destination, days, isDomestic) {
-        if (!this.geminiKey) {
-            throw new Error('未設定 Gemini API Key');
-        }
+        if (!this.geminiKey) return null;
 
-        var prompt = this.buildPrompt(destination, days, isDomestic);
+        var prompt = this.buildPrompt(destination, days, isDomestic, 'Gemini');
 
         try {
             var response = await axios.post(
@@ -150,72 +151,64 @@ class AITourService {
             var content = response.data.candidates[0].content.parts[0].text;
             logger.info('Gemini 生成成功');
 
-            return { success: true, content: content, provider: 'Gemini' };
+            var jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                var tour = JSON.parse(jsonMatch[0]);
+                tour.source = 'Gemini';
+                return tour;
+            }
+            return null;
         } catch (error) {
             logger.error('Gemini 錯誤:', error.message);
-            throw error;
+            return null;
         }
     }
 
-    async generateTour(userId, destination, days, isDomestic) {
-        var result = null;
+    async generateTourWithDualAI(text) {
+        var request = this.parseTravelRequest(text);
+        if (!request) return [];
 
-        if (this.openaiKey) {
-            try {
-                result = await this.generateWithChatGPT(destination, days, isDomestic);
-            } catch (e) {
-                logger.warn('ChatGPT 失敗，嘗試 Gemini:', e.message);
-            }
+        var destination = request.destination;
+        var days = request.days;
+        var isDomestic = request.isDomestic;
+
+        var tours = [];
+
+        // 同時呼叫兩個 AI
+        var [chatgptTour, geminiTour] = await Promise.all([
+            this.generateWithChatGPT(destination, days, isDomestic),
+            this.generateWithGemini(destination, days, isDomestic)
+        ]);
+
+        if (chatgptTour) {
+            chatgptTour.country = isDomestic ? '台灣-' + destination : destination;
+            chatgptTour.days = days;
+            tours.push(chatgptTour);
         }
 
-        if (!result && this.geminiKey) {
-            try {
-                result = await this.generateWithGemini(destination, days, isDomestic);
-            } catch (e) {
-                logger.error('Gemini 也失敗:', e.message);
-            }
+        if (geminiTour) {
+            geminiTour.country = isDomestic ? '台灣-' + destination : destination;
+            geminiTour.days = days;
+            tours.push(geminiTour);
         }
 
-        if (!result) {
-            return { success: false, message: '抱歉，AI 服務暫時無法使用，請稍後再試 🙏' };
-        }
-
-        try {
-            var tour = await TourPlan.create({
-                userId: userId,
+        // 如果兩個都失敗，產生預設行程
+        if (tours.length === 0) {
+            tours.push({
                 name: destination + days + '天輕旅行',
                 country: isDomestic ? '台灣-' + destination : destination,
                 days: days,
-                content: result.content,
-                aiProvider: result.provider,
-                highlights: [],
-                tips: []
+                estimatedCost: { min: isDomestic ? 5000 : 30000, max: isDomestic ? 15000 : 60000 },
+                highlights: ['經典景點', '在地美食', '輕鬆行程'],
+                itinerary: Array.from({ length: days }, function(_, i) {
+                    return { day: i + 1, title: '第' + (i + 1) + '天', activities: ['探索當地', '品嚐美食', '自由活動'] };
+                }),
+                tips: ['建議提早預訂住宿', '注意天氣變化'],
+                source: '系統預設'
             });
-
-            return { success: true, tour: tour, content: result.content, provider: result.provider };
-        } catch (dbError) {
-            logger.error('儲存行程錯誤:', dbError.message);
-            return { success: true, content: result.content, provider: result.provider };
-        }
-    }
-
-    formatTourMessage(result, destination, days) {
-        if (!result.success) {
-            return result.message;
         }
 
-        var message = '🌍 ' + destination + ' ' + days + '天輕旅行\n';
-        message += '━━━━━━━━━━━━━━━\n\n';
-        message += result.content;
-        message += '\n\n━━━━━━━━━━━━━━━\n';
-        message += '🤖 由 ' + result.provider + ' 規劃\n';
-        message += '💾 已儲存，輸入「我的行程」查看';
-
-        if (message.length > 4800) {
-            message = message.substring(0, 4800) + '\n\n...(內容過長已截斷)';
-        }
-
-        return message;
+        return tours;
     }
 }
 

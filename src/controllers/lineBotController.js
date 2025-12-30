@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（完整版）
+ * LINE Bot Controller（雙AI + 卡片版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -46,16 +46,12 @@ async function handleTextMessage(event, client) {
 
         var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
         
-        // 處理健康提醒輸入模式
         if (conversationState && conversationState.currentFlow === 'add_appointment') {
             var parsed = healthReminderService.parseAppointmentInput(text);
             if (parsed) {
                 await healthReminderService.addAppointment(user.id, parsed);
                 await conversationState.update({ currentFlow: null, flowData: null });
-                var response = { 
-                    type: 'text', 
-                    text: '✅ 已新增回診提醒！\n\n🏥 ' + parsed.hospitalName + (parsed.department ? ' ' + parsed.department : '') + '\n📅 ' + parsed.date + '\n\n輸入「健康」查看所有提醒' 
-                };
+                var response = { type: 'text', text: '✅ 已新增回診提醒！\n\n🏥 ' + parsed.hospitalName + (parsed.department ? ' ' + parsed.department : '') + '\n📅 ' + parsed.date + '\n\n輸入「健康」查看所有提醒' };
                 await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
                 return;
             } else {
@@ -74,10 +70,7 @@ async function handleTextMessage(event, client) {
             if (parsed) {
                 await healthReminderService.addMedication(user.id, parsed);
                 await conversationState.update({ currentFlow: null, flowData: null });
-                var response = { 
-                    type: 'text', 
-                    text: '✅ 已新增用藥提醒！\n\n💊 ' + parsed.medicationName + '\n⏰ ' + parsed.reminderTimes.join(', ') + '\n\n輸入「健康」查看所有提醒' 
-                };
+                var response = { type: 'text', text: '✅ 已新增用藥提醒！\n\n💊 ' + parsed.medicationName + '\n⏰ ' + parsed.reminderTimes.join(', ') + '\n\n輸入「健康」查看所有提醒' };
                 await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
                 return;
             } else {
@@ -142,7 +135,8 @@ async function handleKeywordMessage(text, user, client, event) {
                     layout: 'vertical',
                     contents: [
                         { type: 'text', text: '📍 ' + p.country + ' | ' + p.days + '天', size: 'sm', color: '#666666' },
-                        { type: 'text', text: '🤖 ' + (p.aiProvider || 'AI'), size: 'xs', color: '#888888', margin: 'sm' }
+                        { type: 'text', text: '💰 $' + (p.estimatedCostMin || 30000) + '-$' + (p.estimatedCostMax || 50000), size: 'sm', color: '#E74C3C', margin: 'sm' },
+                        { type: 'text', text: '🏷️ ' + (p.aiProvider || p.source || 'AI'), size: 'xs', color: '#888888', margin: 'sm' }
                     ],
                     paddingAll: 'md'
                 },
@@ -157,6 +151,18 @@ async function handleKeywordMessage(text, user, client, event) {
                                 { type: 'button', action: { type: 'postback', label: '📖 詳情', data: 'action=view_tour&id=' + p.id }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
                                 { type: 'button', action: { type: 'postback', label: '🗑️ 刪除', data: 'action=delete_tour&id=' + p.id }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
                             ]
+                        },
+                        {
+                            type: 'button',
+                            action: {
+                                type: 'uri',
+                                label: '📤 分享給好友',
+                                uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + p.name + '\n📍 ' + p.country + ' ' + p.days + '天\n💰 預算 $' + (p.estimatedCostMin || 30000) + '-$' + (p.estimatedCostMax || 50000) + '\n\n加入退休福音讓AI幫你規劃行程！\nhttps://line.me/R/ti/p/@024wclps')
+                            },
+                            style: 'primary',
+                            color: '#2ECC71',
+                            height: 'sm',
+                            margin: 'sm'
                         }
                     ],
                     paddingAll: 'sm'
@@ -179,30 +185,107 @@ async function handleKeywordMessage(text, user, client, event) {
             replyToken: event.replyToken,
             messages: [{
                 type: 'text',
-                text: '🤖 AI 正在為您規劃「' + travelRequest.destination + ' ' + travelRequest.days + '天」行程...\n⏳ 請稍候約 10-20 秒'
+                text: '🤖 AI 正在規劃「' + travelRequest.destination + ' ' + travelRequest.days + '天」行程...\n⏳ 請稍候約 10 秒\n（ChatGPT + Gemini 雙引擎）'
             }]
         });
 
         // 非同步生成行程
         setTimeout(async function() {
             try {
-                var result = await aiTourService.generateTour(user.id, travelRequest.destination, travelRequest.days, travelRequest.isDomestic);
-                var message = aiTourService.formatTourMessage(result, travelRequest.destination, travelRequest.days);
+                var tours = await aiTourService.generateTourWithDualAI(text);
                 
-                await client.pushMessage({
-                    to: user.lineUserId,
-                    messages: [{ type: 'text', text: message }]
-                });
+                for (var i = 0; i < tours.length; i++) {
+                    var tour = tours[i];
+                    var dbId = await tourPlanService.saveTourToDb(user.id, tour);
+                    
+                    var itineraryText = (tour.itinerary || []).map(function(d) {
+                        return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
+                    }).join('\n\n');
+                    
+                    var flexMessage = {
+                        type: 'flex',
+                        altText: '【方案' + (i + 1) + '】' + (tour.name || '精彩行程'),
+                        contents: {
+                            type: 'bubble',
+                            size: 'giga',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌍 【方案' + (i + 1) + '】' + (tour.name || '精彩行程'), weight: 'bold', size: 'lg', color: '#ffffff', wrap: true },
+                                    { type: 'text', text: '🏷️ ' + (tour.source || 'AI'), size: 'sm', color: '#ffffff' }
+                                ],
+                                backgroundColor: i === 0 ? '#E74C3C' : '#3498DB',
+                                paddingAll: 'lg'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'box', layout: 'horizontal', contents: [
+                                        { type: 'text', text: '📍 目的地', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: tour.country || travelRequest.destination, size: 'sm', color: '#333333', flex: 3 }
+                                    ]},
+                                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                                        { type: 'text', text: '📆 天數', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: (tour.days || travelRequest.days) + ' 天', size: 'sm', color: '#333333', flex: 3 }
+                                    ]},
+                                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                                        { type: 'text', text: '💰 預算', size: 'sm', color: '#888888', flex: 2 },
+                                        { type: 'text', text: '$' + (tour.estimatedCost?.min || 30000) + '-$' + (tour.estimatedCost?.max || 50000), size: 'sm', color: '#E74C3C', flex: 3, weight: 'bold' }
+                                    ]},
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '✨ 亮點', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (tour.highlights || ['精彩景點']).slice(0, 5).join('、'), size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '📋 行程', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: itineraryText || '精彩行程規劃中', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '💡 提醒', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (tour.tips || ['祝您旅途愉快']).map(function(t) { return '• ' + t; }).join('\n'), size: 'xs', color: '#888888', wrap: true, margin: 'sm' }
+                                ],
+                                paddingAll: 'lg'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'button', action: { type: 'postback', label: '❤️ 收藏', data: 'action=save_tour&id=' + (dbId || 'none') }, style: 'primary', color: '#E74C3C', flex: 1 },
+                                            { type: 'button', action: { type: 'uri', label: '🔍 查機票', uri: 'https://www.skyscanner.com.tw/' }, style: 'secondary', flex: 1, margin: 'sm' }
+                                        ]
+                                    },
+                                    {
+                                        type: 'button',
+                                        action: {
+                                            type: 'uri',
+                                            label: '📤 分享給好友',
+                                            uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + (tour.name || '精彩行程') + '\n📍 ' + (tour.country || travelRequest.destination) + ' ' + (tour.days || travelRequest.days) + '天\n💰 預算 $' + (tour.estimatedCost?.min || 30000) + '-$' + (tour.estimatedCost?.max || 50000) + '\n\n✨ 亮點：' + (tour.highlights || []).slice(0, 3).join('、') + '\n\n加入退休福音讓AI幫你規劃行程！\nhttps://line.me/R/ti/p/@024wclps')
+                                        },
+                                        style: 'primary',
+                                        color: '#2ECC71',
+                                        margin: 'sm'
+                                    }
+                                ],
+                                paddingAll: 'md'
+                            }
+                        }
+                    };
+                    
+                    await client.pushMessage({ to: user.lineUserId, messages: [flexMessage] });
+                    if (i < tours.length - 1) await new Promise(function(r) { setTimeout(r, 500); });
+                }
+                
             } catch (err) {
                 logger.error('AI Tour error:', err.message);
-                await client.pushMessage({
-                    to: user.lineUserId,
-                    messages: [{ type: 'text', text: '抱歉，行程規劃失敗，請稍後再試 🙏' }]
-                });
+                await client.pushMessage({ to: user.lineUserId, messages: [{ type: 'text', text: '行程生成失敗，請稍後再試 🙏' }] });
             }
         }, 100);
 
-        return null; // 已經回覆了，不需要再回覆
+        return null;
     }
 
     // ========== 今日推薦 ==========
@@ -326,14 +409,77 @@ async function handlePostback(event, client) {
                 var { TourPlan } = require('../models');
                 var plan = await TourPlan.findByPk(viewId);
                 if (plan) {
-                    var contentPreview = (plan.content || '').substring(0, 2000);
-                    if (plan.content && plan.content.length > 2000) {
-                        contentPreview += '\n\n...(內容過長已截斷)';
+                    var itText = '';
+                    if (plan.itinerary && Array.isArray(plan.itinerary)) {
+                        itText = plan.itinerary.map(function(d) {
+                            return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
+                        }).join('\n\n');
+                    } else if (plan.content) {
+                        itText = plan.content.substring(0, 1500);
                     }
                     
-                    response = { 
-                        type: 'text', 
-                        text: '🌍 ' + plan.name + '\n━━━━━━━━━━━━━━━\n📍 ' + plan.country + ' | ' + plan.days + '天\n🤖 ' + (plan.aiProvider || 'AI') + '\n━━━━━━━━━━━━━━━\n\n' + contentPreview
+                    response = {
+                        type: 'flex',
+                        altText: plan.name,
+                        contents: {
+                            type: 'bubble',
+                            size: 'giga',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '🌍 ' + plan.name, weight: 'bold', size: 'lg', color: '#ffffff', wrap: true },
+                                    { type: 'text', text: '🏷️ ' + (plan.aiProvider || plan.source || 'AI'), size: 'sm', color: '#ffffff' }
+                                ],
+                                backgroundColor: '#E74C3C',
+                                paddingAll: 'lg'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    { type: 'text', text: '📍 ' + plan.country + ' | ' + plan.days + '天', size: 'sm', color: '#666666' },
+                                    { type: 'text', text: '💰 $' + (plan.estimatedCostMin || 30000) + '-$' + (plan.estimatedCostMax || 50000), size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '✨ 亮點', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (plan.highlights || []).join('、') || '精彩行程', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '📋 行程', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: itText || '精彩行程', size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+                                    { type: 'separator', margin: 'lg' },
+                                    { type: 'text', text: '💡 提醒', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                                    { type: 'text', text: (plan.tips || []).join('、') || '祝您旅途愉快', size: 'xs', color: '#888888', wrap: true, margin: 'sm' }
+                                ],
+                                paddingAll: 'lg'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            { type: 'button', action: { type: 'uri', label: '📄 下載PDF', uri: 'https://retirement-gospel.onrender.com/api/tour/' + plan.id + '/pdf' }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
+                                            { type: 'button', action: { type: 'uri', label: '🔍 查機票', uri: 'https://www.skyscanner.com.tw/' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                                        ]
+                                    },
+                                    {
+                                        type: 'button',
+                                        action: {
+                                            type: 'uri',
+                                            label: '📤 分享給好友',
+                                            uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + plan.name + '\n📍 ' + plan.country + ' ' + plan.days + '天\n💰 預算 $' + (plan.estimatedCostMin || 30000) + '-$' + (plan.estimatedCostMax || 50000) + '\n\n加入退休福音讓AI幫你規劃！\nhttps://line.me/R/ti/p/@024wclps')
+                                        },
+                                        style: 'primary',
+                                        color: '#2ECC71',
+                                        height: 'sm',
+                                        margin: 'sm'
+                                    }
+                                ],
+                                paddingAll: 'sm'
+                            }
+                        }
                     };
                 } else {
                     response = { type: 'text', text: '找不到此行程' };
@@ -402,10 +548,7 @@ async function handlePostback(event, client) {
             case 'set_city':
                 var newCity = params.get('city');
                 await user.update({ city: newCity });
-                response = { 
-                    type: 'text', 
-                    text: '✅ 城市已更新為：' + newCity + '\n\n輸入「設定」查看完整設定'
-                };
+                response = { type: 'text', text: '✅ 城市已更新為：' + newCity + '\n\n輸入「設定」查看完整設定' };
                 break;
 
             case 'edit_push_time':
@@ -415,21 +558,13 @@ async function handlePostback(event, client) {
             case 'set_push_time':
                 var newTime = params.get('time');
                 await user.update({ morningPushTime: newTime });
-                response = { 
-                    type: 'text', 
-                    text: '✅ 早安推播時間已設定為：' + newTime + '\n\n每天 ' + newTime + ' 會收到早安問候 ☀️\n\n輸入「設定」查看完整設定'
-                };
+                response = { type: 'text', text: '✅ 早安推播時間已設定為：' + newTime + '\n\n每天 ' + newTime + ' 會收到早安問候 ☀️\n\n輸入「設定」查看完整設定' };
                 break;
 
             case 'toggle_notification':
                 var newStatus = !user.notificationEnabled;
                 await user.update({ notificationEnabled: newStatus });
-                response = { 
-                    type: 'text', 
-                    text: newStatus 
-                        ? '🔔 已開啟推播通知！\n\n每天 ' + (user.morningPushTime || '06:00') + ' 會收到早安問候'
-                        : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟'
-                };
+                response = { type: 'text', text: newStatus ? '🔔 已開啟推播通知！\n\n每天 ' + (user.morningPushTime || '06:00') + ' 會收到早安問候' : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟' };
                 break;
 
             case 'health_menu':
@@ -437,27 +572,15 @@ async function handlePostback(event, client) {
                 break;
 
             case 'add_appointment':
-                var [convState, created] = await ConversationState.findOrCreate({
-                    where: { userId: user.id },
-                    defaults: { userId: user.id }
-                });
+                var [convState, created] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
                 await convState.update({ currentFlow: 'add_appointment', flowData: {} });
-                response = { 
-                    type: 'text', 
-                    text: '🏥 新增回診提醒\n\n請輸入回診資訊：\n日期 醫院 科別\n\n例如：1/15 高雄長庚 心臟科\n\n或輸入「取消」返回' 
-                };
+                response = { type: 'text', text: '🏥 新增回診提醒\n\n請輸入回診資訊：\n日期 醫院 科別\n\n例如：1/15 高雄長庚 心臟科\n\n或輸入「取消」返回' };
                 break;
 
             case 'add_medication':
-                var [convState2, created2] = await ConversationState.findOrCreate({
-                    where: { userId: user.id },
-                    defaults: { userId: user.id }
-                });
+                var [convState2, created2] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
                 await convState2.update({ currentFlow: 'add_medication', flowData: {} });
-                response = { 
-                    type: 'text', 
-                    text: '💊 新增用藥提醒\n\n請輸入用藥資訊：\n藥名 服藥時間\n\n例如：阿斯匹靈 早上8點\n例如：降血壓藥 早晚\n\n或輸入「取消」返回' 
-                };
+                response = { type: 'text', text: '💊 新增用藥提醒\n\n請輸入用藥資訊：\n藥名 服藥時間\n\n例如：阿斯匹靈 早上8點\n例如：降血壓藥 早晚\n\n或輸入「取消」返回' };
                 break;
 
             case 'family_menu':
@@ -465,10 +588,7 @@ async function handlePostback(event, client) {
                 break;
 
             case 'invite_family':
-                response = { 
-                    type: 'text', 
-                    text: '👨‍👩‍👧‍👦 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + (user.referralCode || 'ABC123') 
-                };
+                response = { type: 'text', text: '👨‍👩‍👧‍👦 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + (user.referralCode || 'ABC123') };
                 break;
 
             case 'create_group':
@@ -476,7 +596,6 @@ async function handlePostback(event, client) {
                 break;
 
             case 'join_community':
-                var communityId = params.get('id');
                 response = { type: 'text', text: '🎉 已加入社群！\n\n您已成功加入，可以開始與同好交流！' };
                 break;
 
