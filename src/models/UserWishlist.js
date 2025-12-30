@@ -1,5 +1,5 @@
 /**
- * UserWishlist Model - 想去清單
+ * UserWishlist Model
  */
 const { DataTypes } = require('sequelize');
 
@@ -20,9 +20,6 @@ module.exports = (sequelize) => {
             allowNull: false,
             field: 'activity_id'
         },
-        note: {
-            type: DataTypes.STRING(500)
-        },
         isVisited: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
@@ -30,18 +27,17 @@ module.exports = (sequelize) => {
         },
         visitedAt: {
             type: DataTypes.DATE,
+            allowNull: true,
             field: 'visited_at'
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     }, {
         tableName: 'user_wishlists',
-        underscored: true,
         timestamps: true,
-        indexes: [
-            {
-                unique: true,
-                fields: ['user_id', 'activity_id']
-            }
-        ]
+        underscored: true
     });
 
     return UserWishlist;

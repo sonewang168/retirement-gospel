@@ -1,55 +1,49 @@
 /**
- * 資料庫 Models（完整版）
+ * Models Index（關聯修正版）
  */
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
-    logging: false,
     dialectOptions: {
-        ssl: process.env.NODE_ENV === 'production' ? {
+        ssl: {
             require: true,
             rejectUnauthorized: false
-        } : false
+        }
     },
-    pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000
-    }
+    logging: false
 });
 
 // 載入 Models
 const User = require('./User')(sequelize);
 const Activity = require('./Activity')(sequelize);
 const TourPlan = require('./TourPlan')(sequelize);
-const Group = require('./Group')(sequelize);
-const Event = require('./Event')(sequelize);
-const Community = require('./Community')(sequelize);
 const ConversationState = require('./ConversationState')(sequelize);
 const HealthReminder = require('./HealthReminder')(sequelize);
 const UserWishlist = require('./UserWishlist')(sequelize);
 
-// 關聯設定
-User.hasMany(TourPlan, { foreignKey: 'userId' });
-TourPlan.belongsTo(User, { foreignKey: 'userId' });
+// 定義關聯
+User.hasMany(TourPlan, { foreignKey: 'userId', as: 'tourPlans' });
+TourPlan.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-User.hasMany(HealthReminder, { foreignKey: 'userId' });
-HealthReminder.belongsTo(User, { foreignKey: 'userId' });
+User.hasOne(ConversationState, { foreignKey: 'userId', as: 'conversationState' });
+ConversationState.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-User.hasMany(UserWishlist, { foreignKey: 'userId' });
-UserWishlist.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(HealthReminder, { foreignKey: 'userId', as: 'healthReminders' });
+HealthReminder.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-UserWishlist.belongsTo(Activity, { foreignKey: 'activityId' });
-Activity.hasMany(UserWishlist, { foreignKey: 'activityId' });
+// 想去清單關聯（重要：設定別名為小寫）
+User.hasMany(UserWishlist, { foreignKey: 'userId', as: 'wishlists' });
+UserWishlist.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-User.hasMany(Group, { foreignKey: 'creatorId', as: 'createdGroups' });
-Group.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+Activity.hasMany(UserWishlist, { foreignKey: 'activityId', as: 'wishlists' });
+UserWishlist.belongsTo(Activity, { foreignKey: 'activityId', as: 'activity' });
 
-User.hasOne(ConversationState, { foreignKey: 'userId' });
-ConversationState.belongsTo(User, { foreignKey: 'userId' });
+// 測試連線
+sequelize.authenticate()
+    .then(() => logger.info('✅ 資料庫連線成功'))
+    .catch(err => logger.error('❌ 資料庫連線失敗:', err));
 
 module.exports = {
     sequelize,
@@ -57,9 +51,6 @@ module.exports = {
     User,
     Activity,
     TourPlan,
-    Group,
-    Event,
-    Community,
     ConversationState,
     HealthReminder,
     UserWishlist
