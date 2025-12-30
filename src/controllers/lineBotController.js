@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 整合版）
+ * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 + GPS打卡 整合版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -121,7 +121,9 @@ async function handleTextMessage(event, client) {
             conversationState.currentFlow !== 'add_appointment' && 
             conversationState.currentFlow !== 'add_medication' &&
             conversationState.currentFlow !== 'create_group' &&
-            conversationState.currentFlow !== 'input_invite_code') {
+            conversationState.currentFlow !== 'input_invite_code' &&
+            conversationState.currentFlow !== 'checkin_photo' &&
+            conversationState.currentFlow !== 'checkin_gps') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
 
@@ -730,7 +732,23 @@ async function handlePostback(event, client) {
                 var checkinActId = params.get('id');
                 var [convStateCheckin, created] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
                 await convStateCheckin.update({ currentFlow: 'checkin_photo', flowData: { activityId: checkinActId } });
-                response = { type: 'text', text: '📸 請上傳打卡照片！\n\n拍一張現場照片上傳，即可完成打卡獲得積分！\n\n或輸入「取消」返回' };
+                response = { type: 'text', text: '📸 照片打卡\n\n請上傳一張現場照片，即可完成打卡！\n\n✅ 成功可獲得 10 積分\n\n或輸入「取消」返回' };
+                break;
+
+            case 'checkin_with_gps':
+                var gpsActId = params.get('id');
+                var [convStateGps, createdGps] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
+                await convStateGps.update({ currentFlow: 'checkin_gps', flowData: { activityId: gpsActId } });
+                response = {
+                    type: 'text',
+                    text: '📍 現場打卡\n\n請點選下方「傳送位置」按鈕，分享您的目前位置！\n\n⚠️ 需在景點 500 公尺內才能打卡成功\n✅ 成功可獲得 20 積分！\n\n或輸入「取消」返回',
+                    quickReply: {
+                        items: [{
+                            type: 'action',
+                            action: { type: 'location', label: '📍 傳送位置' }
+                        }]
+                    }
+                };
                 break;
 
             case 'my_wishlist':
@@ -988,9 +1006,84 @@ async function handlePostback(event, client) {
     }
 }
 
+// 計算兩點距離（公尺）
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
 async function handleLocationMessage(event, client) {
     try {
         var user = await userService.getOrCreateUser(event.source.userId, client);
+        var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
+        
+        // GPS 打卡驗證
+        if (conversationState && conversationState.currentFlow === 'checkin_gps') {
+            var activityId = conversationState.flowData ? conversationState.flowData.activityId : null;
+            var activity = activityId ? await Activity.findByPk(activityId) : null;
+            
+            if (!activity) {
+                await conversationState.update({ currentFlow: null, flowData: null });
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ 找不到景點資料' }] });
+                return;
+            }
+            
+            // 計算距離
+            var userLat = event.message.latitude;
+            var userLon = event.message.longitude;
+            var actLat = activity.latitude || 25.0330;
+            var actLon = activity.longitude || 121.5654;
+            var distance = calculateDistance(userLat, userLon, actLat, actLon);
+            
+            logger.info('GPS Check - User: ' + userLat + ',' + userLon + ' Activity: ' + actLat + ',' + actLon + ' Distance: ' + distance + 'm');
+            
+            if (distance <= 500) {
+                // 打卡成功
+                await UserWishlist.update(
+                    { isVisited: true, visitedAt: new Date() },
+                    { where: { userId: user.id, activityId: activityId } }
+                );
+                await user.increment('totalPoints', { by: 20 });
+                await conversationState.update({ currentFlow: null, flowData: null });
+                
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{
+                    type: 'flex',
+                    altText: '打卡成功！',
+                    contents: {
+                        type: 'bubble',
+                        header: { type: 'box', layout: 'vertical', backgroundColor: '#27AE60', paddingAll: 'lg', contents: [
+                            { type: 'text', text: '✅ 現場打卡成功！', weight: 'bold', size: 'lg', color: '#ffffff', align: 'center' }
+                        ]},
+                        body: { type: 'box', layout: 'vertical', paddingAll: 'xl', contents: [
+                            { type: 'text', text: '📍 ' + activity.name, size: 'md', color: '#333333', weight: 'bold', wrap: true, align: 'center' },
+                            { type: 'text', text: '距離：' + Math.round(distance) + ' 公尺', size: 'sm', color: '#666666', margin: 'md', align: 'center' },
+                            { type: 'text', text: '🏆 獲得 20 積分！', size: 'lg', color: '#E74C3C', weight: 'bold', margin: 'lg', align: 'center' }
+                        ]}
+                    }
+                }] });
+            } else {
+                // 太遠
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{
+                    type: 'text',
+                    text: '❌ 打卡失敗\n\n您距離「' + activity.name + '」還有 ' + Math.round(distance) + ' 公尺，超過 500 公尺限制。\n\n請到達景點附近再試一次，或選擇「📸 照片打卡」！',
+                    quickReply: {
+                        items: [
+                            { type: 'action', action: { type: 'location', label: '📍 重新定位' } },
+                            { type: 'action', action: { type: 'message', label: '取消', text: '取消' } }
+                        ]
+                    }
+                }] });
+            }
+            return;
+        }
+        
+        // 一般位置訊息 - 顯示附近景點
         var nearby = await recommendationService.getNearbyActivities(event.message.latitude, event.message.longitude, user);
         var response = flexMessageBuilder.buildNearbyActivities(nearby, event.message.address);
         await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
@@ -1028,14 +1121,14 @@ async function handleImageMessage(event, client) {
                     );
                 }
                 
-                // 加積分
-                await user.increment('totalPoints', { by: 15 });
+                // 加積分（照片打卡 10 分）
+                await user.increment('totalPoints', { by: 10 });
                 
                 // 清除流程狀態
                 await conversationState.update({ currentFlow: null, flowData: null });
                 
                 var activity = activityId ? await Activity.findByPk(activityId) : { name: '景點' };
-                var response = familyFlexBuilder.buildCheckInWithPhoto(activity, uploadResult.url, 15);
+                var response = familyFlexBuilder.buildCheckInWithPhoto(activity, uploadResult.url, 10);
                 await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
             } else {
                 await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ 照片上傳失敗，請重試\n\n或輸入「取消」返回' }] });
