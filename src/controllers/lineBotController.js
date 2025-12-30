@@ -1,18 +1,21 @@
 /**
- * LINE Bot Controller（揪團功能整合版）
+ * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 整合版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
 const recommendationService = require('../services/recommendationService');
 const conversationService = require('../services/conversationService');
 const groupService = require('../services/groupService');
+const familyService = require('../services/familyService');
+const imgbbService = require('../services/imgbbService');
 const flexMessageBuilder = require('../linebot/flexMessageBuilder');
 const groupFlexBuilder = require('../linebot/groupFlexBuilder');
+const familyFlexBuilder = require('../linebot/familyFlexBuilder');
 const richMenuService = require('../linebot/richMenuService');
 const tourPlanService = require('../services/tourPlanService');
 const healthReminderService = require('../services/healthReminderService');
 const aiTourService = require('../services/aiTourService');
-const { User, ConversationState, Activity, UserWishlist, Group, GroupMember } = require('../models');
+const { User, ConversationState, Activity, UserWishlist, Group, GroupMember, FamilyLink } = require('../models');
 
 async function handleFollow(event, client) {
     var userId = event.source.userId;
@@ -25,7 +28,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n🎉 輸入「揪團」找人一起玩\n💡 輸入「今日推薦」看精選活動' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n💡 輸入「今日推薦」看精選活動' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -96,11 +99,29 @@ async function handleTextMessage(event, client) {
             return;
         }
 
+        // 處理輸入邀請碼流程
+        if (conversationState && conversationState.currentFlow === 'input_invite_code') {
+            if (text === '取消') {
+                await conversationState.update({ currentFlow: null, flowData: null });
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '已取消\n\n輸入「家人」返回家人關懷' }] });
+                return;
+            }
+            var linkResult = await familyService.linkByInviteCode(user.id, text, 'family');
+            await conversationState.update({ currentFlow: null, flowData: null });
+            if (linkResult.success) {
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '✅ ' + linkResult.message + '\n\n現在可以查看 ' + linkResult.elderName + ' 的動態了！\n\n輸入「家人」查看' }] });
+            } else {
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ ' + linkResult.message }] });
+            }
+            return;
+        }
+
         // 處理其他對話流程
         if (conversationState && conversationState.currentFlow && 
             conversationState.currentFlow !== 'add_appointment' && 
             conversationState.currentFlow !== 'add_medication' &&
-            conversationState.currentFlow !== 'create_group') {
+            conversationState.currentFlow !== 'create_group' &&
+            conversationState.currentFlow !== 'input_invite_code') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
 
@@ -209,7 +230,7 @@ async function handleKeywordMessage(text, user, client, event) {
         };
     }
 
-    // ========== AI 行程規劃（國內外都支援）==========
+    // ========== AI 行程規劃 ==========
     var travelRequest = aiTourService.parseTravelRequest(text);
     if (travelRequest) {
         await client.replyMessage({
@@ -346,6 +367,14 @@ async function handleKeywordMessage(text, user, client, event) {
         return groupFlexBuilder.buildCreateGroupStep1();
     }
 
+    // ========== 家人關懷 ==========
+    if (matchKeywords(lowerText, ['家人', '家人關懷', '關懷', '子女', '連結家人'])) {
+        var inviteCode = await familyService.getOrCreateInviteCode(user.id);
+        var family = await familyService.getMyFamily(user.id);
+        var elders = await familyService.getMyElders(user.id);
+        return familyFlexBuilder.buildFamilyCareMenu(user, inviteCode, family.length, elders.length);
+    }
+
     // ========== 天氣 ==========
     if (matchKeywords(lowerText, ['天氣', '氣象', '下雨', '溫度'])) {
         var weatherService = require('../services/weatherService');
@@ -366,11 +395,6 @@ async function handleKeywordMessage(text, user, client, event) {
     // ========== 健康 ==========
     if (matchKeywords(lowerText, ['健康', '用藥', '回診', '吃藥', '提醒'])) {
         return await flexMessageBuilder.buildHealthMenu(user);
-    }
-
-    // ========== 家人 ==========
-    if (matchKeywords(lowerText, ['家人', '子女', '連結', '關懷'])) {
-        return flexMessageBuilder.buildFamilyMenu(user);
     }
 
     // ========== 社群 ==========
@@ -394,7 +418,7 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         var hour = new Date().getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n❤️ 輸入「想去清單」查看活動' };
+        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n❤️ 輸入「想去清單」查看活動' };
     }
 
     // ========== 幫助 ==========
@@ -413,7 +437,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n👨‍👩‍👧 家人 - 家人關懷\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -424,7 +448,7 @@ function matchKeywords(text, keywords) {
 }
 
 // ========== 建立揪團對話流程 ==========
-async function handleCreateGroupFlow(event, client, convState, user, text) {
+async function handleCreateGroupFlow(event, client, user, convState, text) {
     var flowData = convState.flowData || {};
     var step = flowData.step || 1;
 
@@ -702,6 +726,13 @@ async function handlePostback(event, client) {
                 }
                 break;
 
+            case 'checkin_with_photo':
+                var checkinActId = params.get('id');
+                var [convStateCheckin, created] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
+                await convStateCheckin.update({ currentFlow: 'checkin_photo', flowData: { activityId: checkinActId } });
+                response = { type: 'text', text: '📸 請上傳打卡照片！\n\n拍一張現場照片上傳，即可完成打卡獲得積分！\n\n或輸入「取消」返回' };
+                break;
+
             case 'my_wishlist':
                 var wishlist = await userService.getWishlist(user.id);
                 response = flexMessageBuilder.buildWishlistCard(wishlist);
@@ -755,11 +786,55 @@ async function handlePostback(event, client) {
                 break;
 
             case 'family_menu':
-                response = flexMessageBuilder.buildFamilyMenu(user);
+                var inviteCode = await familyService.getOrCreateInviteCode(user.id);
+                var family = await familyService.getMyFamily(user.id);
+                var elders = await familyService.getMyElders(user.id);
+                response = familyFlexBuilder.buildFamilyCareMenu(user, inviteCode, family.length, elders.length);
+                break;
+
+            case 'share_invite_code':
+                var code = await familyService.getOrCreateInviteCode(user.id);
+                response = { type: 'text', text: '📤 分享邀請碼給家人\n\n🔑 您的邀請碼：' + code + '\n\n請告訴家人：\n1. 加入「退休福音」LINE 好友\n2. 輸入「家人」\n3. 點選「輸入邀請碼」\n4. 輸入邀請碼 ' + code + '\n\n連結後家人可以關心您的動態！' };
+                break;
+
+            case 'input_invite_code':
+                var [convStateInvite, createdInvite] = await ConversationState.findOrCreate({ where: { userId: user.id }, defaults: { userId: user.id } });
+                await convStateInvite.update({ currentFlow: 'input_invite_code', flowData: {} });
+                response = { type: 'text', text: '🔗 請輸入長輩的邀請碼：\n\n（6位數字英文，例如：ABC123）\n\n或輸入「取消」返回' };
+                break;
+
+            case 'my_family_list':
+                var myFamily = await familyService.getMyFamily(user.id);
+                response = familyFlexBuilder.buildMyFamilyList(myFamily);
+                break;
+
+            case 'my_elders_list':
+                var myElders = await familyService.getMyElders(user.id);
+                response = familyFlexBuilder.buildMyEldersList(myElders);
+                break;
+
+            case 'view_elder_activity':
+                var elderId = params.get('id');
+                var elderData = await familyService.getElderActivities(elderId, user.id);
+                response = familyFlexBuilder.buildElderActivityCard(elderData);
+                break;
+
+            case 'send_sos':
+                response = familyFlexBuilder.buildSOSConfirm();
+                break;
+
+            case 'confirm_sos':
+                var sosResult = await familyService.sendSOS(user.id, client, '緊急求助');
+                response = { type: 'text', text: sosResult.success ? '🚨 ' + sosResult.message + '\n\n家人們會盡快聯繫您！' : '⚠️ ' + sosResult.message };
+                break;
+
+            case 'cancel_sos':
+                response = { type: 'text', text: '已取消\n\n輸入「家人」返回家人關懷' };
                 break;
 
             case 'invite_family':
-                response = { type: 'text', text: '👨‍👩‍👧‍👦 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + (user.referralCode || 'ABC123') };
+                var inviteCode2 = await familyService.getOrCreateInviteCode(user.id);
+                response = { type: 'text', text: '👨‍👩‍👧 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + inviteCode2 };
                 break;
 
             case 'join_community':
@@ -780,7 +855,7 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '輸入「日本5天」或「台南3天」試試AI行程！' };
                 break;
 
-            // ========== 揪團相關 Postback ==========
+            // ========== 揪團相關 ==========
             case 'browse_groups':
                 var groups = await groupService.getOpenGroups(user.city);
                 response = groupFlexBuilder.buildGroupList(groups);
@@ -902,7 +977,7 @@ async function handlePostback(event, client) {
                 break;
 
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n🎉 揪團\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n🎉 揪團\n👨‍👩‍👧 家人\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {
@@ -925,11 +1000,54 @@ async function handleLocationMessage(event, client) {
 }
 
 async function handleStickerMessage(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！\n🏆 輸入「達人」查看您的等級！\n🎉 輸入「揪團」找人一起玩！' }] });
+    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！\n🏆 輸入「達人」查看您的等級！\n🎉 輸入「揪團」找人一起玩！\n👨‍👩‍👧 輸入「家人」連結家人關懷！' }] });
 }
 
 async function handleImageMessage(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n打卡照片功能即將推出！' }] });
+    try {
+        var user = await userService.getOrCreateUser(event.source.userId, client);
+        var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
+
+        // 處理打卡照片上傳
+        if (conversationState && conversationState.currentFlow === 'checkin_photo') {
+            var activityId = conversationState.flowData ? conversationState.flowData.activityId : null;
+            
+            // 上傳到 ImgBB
+            var uploadResult = await imgbbService.uploadFromLine(client, event.message.id, 'checkin_' + user.id);
+            
+            if (uploadResult.success) {
+                // 更新打卡記錄
+                if (activityId) {
+                    await UserWishlist.update(
+                        { 
+                            isVisited: true, 
+                            visitedAt: new Date(),
+                            checkInPhotoUrl: uploadResult.url
+                        },
+                        { where: { userId: user.id, activityId: activityId } }
+                    );
+                }
+                
+                // 加積分
+                await user.increment('totalPoints', { by: 15 });
+                
+                // 清除流程狀態
+                await conversationState.update({ currentFlow: null, flowData: null });
+                
+                var activity = activityId ? await Activity.findByPk(activityId) : { name: '景點' };
+                var response = familyFlexBuilder.buildCheckInWithPhoto(activity, uploadResult.url, 15);
+                await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+            } else {
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ 照片上傳失敗，請重試\n\n或輸入「取消」返回' }] });
+            }
+            return;
+        }
+
+        // 一般照片訊息
+        await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n在「想去清單」點選景點，可以上傳打卡照片喔！' }] });
+    } catch (error) {
+        logger.error('Image error:', error);
+    }
 }
 
 async function handleVideoMessage(event, client) {

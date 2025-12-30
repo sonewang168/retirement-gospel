@@ -1,5 +1,5 @@
 /**
- * Models Index（揪團功能版）
+ * Models Index（家人關懷 + 揪團功能版）
  */
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
@@ -25,6 +25,7 @@ const UserWishlist = require('./UserWishlist')(sequelize);
 const Group = require('./Group')(sequelize);
 const GroupMember = require('./GroupMember')(sequelize);
 const Event = require('./Event')(sequelize);
+const FamilyLink = require('./FamilyLink')(sequelize);
 
 // ========== 既有關聯 ==========
 
@@ -45,25 +46,30 @@ UserWishlist.belongsTo(Activity, { foreignKey: 'activityId', as: 'activity' });
 
 // ========== 揪團關聯 ==========
 
-// User <-> Group（發起者）
 User.hasMany(Group, { foreignKey: 'creatorId', as: 'createdGroups' });
 Group.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
 
-// Group <-> Activity（可選的關聯活動）
 Activity.hasMany(Group, { foreignKey: 'activityId', as: 'groups' });
 Group.belongsTo(Activity, { foreignKey: 'activityId', as: 'activity' });
 
-// Group <-> Event（可選的關聯事件）
 Event.hasMany(Group, { foreignKey: 'eventId', as: 'groups' });
 Group.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
 
-// Group <-> GroupMember
 Group.hasMany(GroupMember, { foreignKey: 'groupId', as: 'members' });
 GroupMember.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
 
-// User <-> GroupMember
 User.hasMany(GroupMember, { foreignKey: 'userId', as: 'groupMemberships' });
 GroupMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ========== 家人關懷關聯 ==========
+
+// 長輩 -> 多個家人連結
+User.hasMany(FamilyLink, { foreignKey: 'elderId', as: 'familyLinks' });
+FamilyLink.belongsTo(User, { foreignKey: 'elderId', as: 'elder' });
+
+// 家人 -> 多個長輩連結
+User.hasMany(FamilyLink, { foreignKey: 'familyId', as: 'elderLinks' });
+FamilyLink.belongsTo(User, { foreignKey: 'familyId', as: 'family' });
 
 // 測試連線
 sequelize.authenticate()
@@ -81,5 +87,6 @@ module.exports = {
     UserWishlist,
     Group,
     GroupMember,
-    Event
+    Event,
+    FamilyLink
 };
