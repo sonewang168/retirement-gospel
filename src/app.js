@@ -1,14 +1,12 @@
 /**
- * 退休福音 LINE Bot - 主應用程式
+ * 退休福音 LINE Bot - 主程式入口
  */
 require('dotenv').config();
-
 const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-
 const logger = require('./utils/logger');
 const { sequelize } = require('./models');
 const lineBotRouter = require('./routes/lineBot');
@@ -21,9 +19,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================
-// 中間件設定
+// 中介層設定
 // ============================================
-
 app.use(helmet({
     contentSecurityPolicy: false
 }));
@@ -40,14 +37,13 @@ app.use(express.urlencoded({ extended: true }));
 // 靜態檔案
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 視圖引擎
+// 模板引擎
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
 // ============================================
 // 路由設定
 // ============================================
-
 app.use('/webhook', lineBotRouter);
 app.use('/api', apiRouter);
 app.use('/liff', liffRouter);
@@ -56,11 +52,10 @@ app.use('/', webRouter);
 // ============================================
 // 錯誤處理
 // ============================================
-
 app.use((req, res, next) => {
     res.status(404).render('error', {
         title: '404',
-        message: '頁面不存在'
+        message: '找不到頁面'
     });
 });
 
@@ -73,14 +68,72 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
+// 自動 Migration - 建立缺少的表格和欄位
+// ============================================
+async function autoMigrate() {
+    try {
+        logger.info('檢查資料庫結構...');
+
+        // 建立 family_links 表
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS family_links (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                elder_id UUID NOT NULL,
+                family_id UUID NOT NULL,
+                relationship VARCHAR(20) DEFAULT 'family',
+                nickname VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'approved',
+                privacy_settings JSONB DEFAULT '{"showActivity": true, "showHealth": false, "showLocation": true, "showGroups": true}',
+                notify_on_activity BOOLEAN DEFAULT true,
+                notify_on_sos BOOLEAN DEFAULT true,
+                linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(elder_id, family_id)
+            );
+        `);
+
+        // 建立索引
+        try {
+            await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_elder ON family_links(elder_id);');
+            await sequelize.query('CREATE INDEX IF NOT EXISTS idx_family_links_family ON family_links(family_id);');
+        } catch (e) {
+            // 忽略索引已存在錯誤
+        }
+
+        // users 表新增 referral_code 欄位
+        try {
+            await sequelize.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(10);');
+        } catch (e) {
+            // 欄位可能已存在
+        }
+
+        // user_wishlists 表新增打卡照片欄位
+        try {
+            await sequelize.query('ALTER TABLE user_wishlists ADD COLUMN IF NOT EXISTS check_in_photo_url TEXT;');
+        } catch (e) {
+            // 欄位可能已存在
+        }
+
+        logger.info('資料庫結構檢查完成');
+
+    } catch (error) {
+        logger.error('自動 Migration 錯誤:', error.message);
+        // 不中斷啟動，繼續執行
+    }
+}
+
+// ============================================
 // 啟動伺服器
 // ============================================
-
 async function startServer() {
     try {
         // 連接資料庫
         await sequelize.authenticate();
         logger.info('資料庫連線成功');
+
+        // 執行自動 Migration
+        await autoMigrate();
 
         // 同步資料庫
         await sequelize.sync({ alter: false });
