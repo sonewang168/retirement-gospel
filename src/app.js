@@ -121,6 +121,33 @@ async function startServer() {
         // 設定 morgan
         app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
+        // 測試推播 API（放在其他路由之前）
+        app.get('/api/test-push', async function(req, res) {
+            try {
+                logger.info('收到測試推播請求');
+                await schedulerService.sendMorningPush();
+                res.json({ 
+                    success: true, 
+                    message: '推播已發送！請檢查 LINE',
+                    taiwanTime: schedulerService.getTaiwanTime().toISOString(),
+                    greeting: schedulerService.getGreeting()
+                });
+            } catch (error) {
+                logger.error('測試推播失敗:', error);
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // 檢查時間 API
+        app.get('/api/check-time', function(req, res) {
+            res.json({
+                utc: new Date().toISOString(),
+                taiwanTime: schedulerService.getTaiwanTime().toISOString(),
+                taiwanHour: schedulerService.getTaiwanTime().getHours(),
+                greeting: schedulerService.getGreeting()
+            });
+        });
+
         // 路由設定
         app.use('/webhook', lineBotRouter);
         app.use('/api', apiRouter);
@@ -154,33 +181,6 @@ async function startServer() {
         // 啟動排程服務
         schedulerService.initScheduler();
         logger.info('排程服務啟動');
-
-        // 測試推播 API（部署後可用）
-        app.get('/api/test-push', async function(req, res) {
-            try {
-                logger.info('收到測試推播請求');
-                await schedulerService.sendMorningPush();
-                res.json({ 
-                    success: true, 
-                    message: '推播已發送！請檢查 LINE',
-                    taiwanTime: schedulerService.getTaiwanTime().toISOString(),
-                    greeting: schedulerService.getGreeting()
-                });
-            } catch (error) {
-                logger.error('測試推播失敗:', error);
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-
-        // 檢查時間 API
-        app.get('/api/check-time', function(req, res) {
-            res.json({
-                utc: new Date().toISOString(),
-                taiwanTime: schedulerService.getTaiwanTime().toISOString(),
-                taiwanHour: schedulerService.getTaiwanTime().getHours(),
-                greeting: schedulerService.getGreeting()
-            });
-        });
 
         // 啟動伺服器
         app.listen(PORT, () => {
