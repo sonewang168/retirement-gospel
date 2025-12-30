@@ -155,6 +155,33 @@ async function startServer() {
         schedulerService.initScheduler();
         logger.info('排程服務啟動');
 
+        // 測試推播 API（部署後可用）
+        app.get('/api/test-push', async function(req, res) {
+            try {
+                logger.info('收到測試推播請求');
+                await schedulerService.sendMorningPush();
+                res.json({ 
+                    success: true, 
+                    message: '推播已發送！請檢查 LINE',
+                    taiwanTime: schedulerService.getTaiwanTime().toISOString(),
+                    greeting: schedulerService.getGreeting()
+                });
+            } catch (error) {
+                logger.error('測試推播失敗:', error);
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
+        // 檢查時間 API
+        app.get('/api/check-time', function(req, res) {
+            res.json({
+                utc: new Date().toISOString(),
+                taiwanTime: schedulerService.getTaiwanTime().toISOString(),
+                taiwanHour: schedulerService.getTaiwanTime().getHours(),
+                greeting: schedulerService.getGreeting()
+            });
+        });
+
         // 啟動伺服器
         app.listen(PORT, () => {
             logger.info('伺服器運行於 port ' + PORT);
