@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
 const IMGBB_UPLOAD_URL = 'https://api.imgbb.com/1/upload';
+const LINE_CONTENT_URL = 'https://api-data.line.me/v2/bot/message';
 
 /**
  * 上傳圖片到 ImgBB
@@ -65,50 +66,47 @@ async function uploadImage(imageData, name) {
 }
 
 /**
- * 從 LINE 取得圖片並上傳到 ImgBB
+ * 從 LINE 取得圖片並上傳到 ImgBB（使用 axios 直接呼叫）
  */
 async function uploadFromLine(client, messageId, name) {
     try {
         logger.info('Getting image from LINE, messageId: ' + messageId);
         
-        // 從 LINE 取得圖片內容
-        var stream = await client.getMessageContent(messageId);
+        var channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
         
-        // 收集所有 chunks
-        var chunks = [];
-        
-        return new Promise(function(resolve, reject) {
-            stream.on('data', function(chunk) {
-                chunks.push(chunk);
-            });
-            
-            stream.on('end', async function() {
-                try {
-                    var buffer = Buffer.concat(chunks);
-                    logger.info('Got image from LINE, size: ' + buffer.length + ' bytes');
-                    
-                    if (buffer.length === 0) {
-                        resolve({ success: false, error: '圖片內容為空' });
-                        return;
-                    }
-                    
-                    // 上傳到 ImgBB
-                    var result = await uploadImage(buffer, name || 'checkin_' + messageId);
-                    resolve(result);
-                } catch (err) {
-                    logger.error('Process image error:', err.message || err);
-                    resolve({ success: false, error: err.message || '處理圖片錯誤' });
-                }
-            });
-            
-            stream.on('error', function(err) {
-                logger.error('Stream error:', err.message || err);
-                resolve({ success: false, error: err.message || '串流錯誤' });
-            });
-        });
+        if (!channelAccessToken) {
+            logger.error('LINE_CHANNEL_ACCESS_TOKEN not configured');
+            return { success: false, error: 'LINE Token 未設定' };
+        }
+
+        // 直接用 axios 從 LINE API 取得圖片
+        var response = await axios.get(
+            LINE_CONTENT_URL + '/' + messageId + '/content',
+            {
+                headers: {
+                    'Authorization': 'Bearer ' + channelAccessToken
+                },
+                responseType: 'arraybuffer',
+                timeout: 30000
+            }
+        );
+
+        var buffer = Buffer.from(response.data);
+        logger.info('Got image from LINE, size: ' + buffer.length + ' bytes');
+
+        if (buffer.length === 0) {
+            return { success: false, error: '圖片內容為空' };
+        }
+
+        // 上傳到 ImgBB
+        var result = await uploadImage(buffer, name || 'checkin_' + messageId);
+        return result;
 
     } catch (error) {
-        logger.error('Upload from LINE error:', error.message || error);
+        logger.error('Upload from LINE error:', error.message || JSON.stringify(error));
+        if (error.response) {
+            logger.error('LINE API response status:', error.response.status);
+        }
         return { success: false, error: error.message || '取得圖片失敗' };
     }
 }
