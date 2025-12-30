@@ -1,5 +1,5 @@
 /**
- * AI 行程規劃服務（雙AI + 卡片版）
+ * AI 行程規劃服務（雙AI + Gemini 2.0 Flash）
  */
 const axios = require('axios');
 const logger = require('../utils/logger');
@@ -96,7 +96,10 @@ class AITourService {
     }
 
     async generateWithChatGPT(destination, days, isDomestic) {
-        if (!this.openaiKey) return null;
+        if (!this.openaiKey) {
+            logger.warn('未設定 OpenAI API Key');
+            return null;
+        }
 
         var prompt = this.buildPrompt(destination, days, isDomestic, 'ChatGPT');
 
@@ -124,92 +127,4 @@ class AITourService {
             if (jsonMatch) {
                 var tour = JSON.parse(jsonMatch[0]);
                 tour.source = 'ChatGPT';
-                return tour;
-            }
-            return null;
-        } catch (error) {
-            logger.error('ChatGPT 錯誤:', error.message);
-            return null;
-        }
-    }
-
-    async generateWithGemini(destination, days, isDomestic) {
-        if (!this.geminiKey) return null;
-
-        var prompt = this.buildPrompt(destination, days, isDomestic, 'Gemini');
-
-        try {
-            var response = await axios.post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + this.geminiKey,
-                {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
-                },
-                { timeout: 60000 }
-            );
-
-            var content = response.data.candidates[0].content.parts[0].text;
-            logger.info('Gemini 生成成功');
-
-            var jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                var tour = JSON.parse(jsonMatch[0]);
-                tour.source = 'Gemini';
-                return tour;
-            }
-            return null;
-        } catch (error) {
-            logger.error('Gemini 錯誤:', error.message);
-            return null;
-        }
-    }
-
-    async generateTourWithDualAI(text) {
-        var request = this.parseTravelRequest(text);
-        if (!request) return [];
-
-        var destination = request.destination;
-        var days = request.days;
-        var isDomestic = request.isDomestic;
-
-        var tours = [];
-
-        // 同時呼叫兩個 AI
-        var [chatgptTour, geminiTour] = await Promise.all([
-            this.generateWithChatGPT(destination, days, isDomestic),
-            this.generateWithGemini(destination, days, isDomestic)
-        ]);
-
-        if (chatgptTour) {
-            chatgptTour.country = isDomestic ? '台灣-' + destination : destination;
-            chatgptTour.days = days;
-            tours.push(chatgptTour);
-        }
-
-        if (geminiTour) {
-            geminiTour.country = isDomestic ? '台灣-' + destination : destination;
-            geminiTour.days = days;
-            tours.push(geminiTour);
-        }
-
-        // 如果兩個都失敗，產生預設行程
-        if (tours.length === 0) {
-            tours.push({
-                name: destination + days + '天輕旅行',
-                country: isDomestic ? '台灣-' + destination : destination,
-                days: days,
-                estimatedCost: { min: isDomestic ? 5000 : 30000, max: isDomestic ? 15000 : 60000 },
-                highlights: ['經典景點', '在地美食', '輕鬆行程'],
-                itinerary: Array.from({ length: days }, function(_, i) {
-                    return { day: i + 1, title: '第' + (i + 1) + '天', activities: ['探索當地', '品嚐美食', '自由活動'] };
-                }),
-                tips: ['建議提早預訂住宿', '注意天氣變化'],
-                source: '系統預設'
-            });
-        }
-
-        return tours;
-    }
-}
-
-module.exports = new AITourService();
+                return tour
