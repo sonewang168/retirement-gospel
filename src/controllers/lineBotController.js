@@ -1101,12 +1101,16 @@ async function handleImageMessage(event, client) {
         var user = await userService.getOrCreateUser(event.source.userId, client);
         var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
 
+        logger.info('Image message - currentFlow: ' + (conversationState ? conversationState.currentFlow : 'none'));
+
         // 處理打卡照片上傳
         if (conversationState && conversationState.currentFlow === 'checkin_photo') {
             var activityId = conversationState.flowData ? conversationState.flowData.activityId : null;
+            logger.info('Checkin photo flow - activityId: ' + activityId);
             
             // 上傳到 ImgBB
             var uploadResult = await imgbbService.uploadFromLine(client, event.message.id, 'checkin_' + user.id);
+            logger.info('Upload result: ' + JSON.stringify(uploadResult));
             
             if (uploadResult.success) {
                 // 更新打卡記錄
@@ -1119,27 +1123,45 @@ async function handleImageMessage(event, client) {
                         },
                         { where: { userId: user.id, activityId: activityId } }
                     );
+                    logger.info('Wishlist updated');
                 }
                 
                 // 加積分（照片打卡 10 分）
                 await user.increment('totalPoints', { by: 10 });
+                logger.info('Points added');
                 
                 // 清除流程狀態
                 await conversationState.update({ currentFlow: null, flowData: null });
+                logger.info('Flow cleared');
                 
                 var activity = activityId ? await Activity.findByPk(activityId) : { name: '景點' };
-                var response = familyFlexBuilder.buildCheckInWithPhoto(activity, uploadResult.url, 10);
+                logger.info('Activity: ' + (activity ? activity.name : 'null'));
+                
+                // 簡化回覆訊息（避免圖片造成問題）
+                var response = {
+                    type: 'text',
+                    text: '✅ 打卡成功！\n\n📍 ' + (activity ? activity.name : '景點') + '\n🏆 獲得 10 積分！\n\n📸 照片已上傳：\n' + uploadResult.url
+                };
+                
+                logger.info('Sending reply...');
                 await client.replyMessage({ replyToken: event.replyToken, messages: [response] });
+                logger.info('Reply sent');
             } else {
-                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ 照片上傳失敗，請重試\n\n或輸入「取消」返回' }] });
+                logger.error('Upload failed: ' + uploadResult.error);
+                await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '⚠️ 照片上傳失敗：' + (uploadResult.error || '未知錯誤') + '\n\n請重試或輸入「取消」返回' }] });
             }
             return;
         }
 
         // 一般照片訊息
+        logger.info('General image message');
         await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n在「想去清單」點選景點，可以上傳打卡照片喔！' }] });
     } catch (error) {
-        logger.error('Image error:', error);
+        logger.error('Image error:', error.message || error);
+        if (error.response) {
+            logger.error('Response status:', error.response.status);
+            logger.error('Response data:', JSON.stringify(error.response.data));
+        }
     }
 }
 
