@@ -1137,10 +1137,49 @@ async function handleImageMessage(event, client) {
                 var activity = activityId ? await Activity.findByPk(activityId) : { name: '景點' };
                 logger.info('Activity: ' + (activity ? activity.name : 'null'));
                 
-                // 簡化回覆訊息（避免圖片造成問題）
+                // Flex Message 卡片顯示打卡成功
                 var response = {
-                    type: 'text',
-                    text: '✅ 打卡成功！\n\n📍 ' + (activity ? activity.name : '景點') + '\n🏆 獲得 10 積分！\n\n📸 照片已上傳：\n' + uploadResult.url
+                    type: 'flex',
+                    altText: '✅ 打卡成功！' + (activity ? activity.name : '景點'),
+                    contents: {
+                        type: 'bubble',
+                        size: 'mega',
+                        header: {
+                            type: 'box',
+                            layout: 'vertical',
+                            backgroundColor: '#27AE60',
+                            paddingAll: 'lg',
+                            contents: [
+                                { type: 'text', text: '✅ 打卡成功！', weight: 'bold', size: 'xl', color: '#ffffff', align: 'center' }
+                            ]
+                        },
+                        hero: {
+                            type: 'image',
+                            url: uploadResult.url,
+                            size: 'full',
+                            aspectRatio: '1:1',
+                            aspectMode: 'cover'
+                        },
+                        body: {
+                            type: 'box',
+                            layout: 'vertical',
+                            paddingAll: 'xl',
+                            contents: [
+                                { type: 'text', text: '📍 ' + (activity ? activity.name : '景點'), size: 'lg', color: '#333333', weight: 'bold', align: 'center', wrap: true },
+                                { type: 'text', text: '🏆 獲得 10 積分！', size: 'md', color: '#E74C3C', weight: 'bold', align: 'center', margin: 'lg' },
+                                { type: 'text', text: '繼續探索更多景點吧！', size: 'sm', color: '#888888', align: 'center', margin: 'md' }
+                            ]
+                        },
+                        footer: {
+                            type: 'box',
+                            layout: 'horizontal',
+                            paddingAll: 'md',
+                            contents: [
+                                { type: 'button', action: { type: 'postback', label: '🗺️ 我的地圖', data: 'action=my_map' }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
+                                { type: 'button', action: { type: 'postback', label: '🏆 達人等級', data: 'action=my_expert' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                            ]
+                        }
+                    }
                 };
                 
                 logger.info('Sending reply...');
