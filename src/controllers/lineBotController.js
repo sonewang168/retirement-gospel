@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（雙AI + 卡片版）
+ * LINE Bot Controller（達人系統版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -11,7 +11,7 @@ const richMenuService = require('../linebot/richMenuService');
 const tourPlanService = require('../services/tourPlanService');
 const healthReminderService = require('../services/healthReminderService');
 const aiTourService = require('../services/aiTourService');
-const { User, ConversationState, Activity } = require('../models');
+const { User, ConversationState, Activity, UserWishlist } = require('../models');
 
 async function handleFollow(event, client) {
     var userId = event.source.userId;
@@ -24,7 +24,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n💡 輸入「今日推薦」看精選活動\n☁️ 輸入「天氣」查看天氣預報\n💊 輸入「健康」管理用藥回診' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n💡 輸入「今日推薦」看精選活動' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -103,6 +103,22 @@ async function handleTextMessage(event, client) {
 async function handleKeywordMessage(text, user, client, event) {
     var lowerText = text.toLowerCase();
 
+    // ========== 達人系統 ==========
+    if (matchKeywords(lowerText, ['達人', '等級', '積分', '我的等級', '徽章', '成就'])) {
+        var status = await userService.getExpertStatus(user.id);
+        return flexMessageBuilder.buildExpertCard(status);
+    }
+
+    // ========== 我的地圖 ==========
+    if (matchKeywords(lowerText, ['地圖', '我的地圖', '探索地圖', '足跡', '打卡紀錄'])) {
+        var visitedList = await UserWishlist.findAll({
+            where: { userId: user.id, isVisited: true },
+            include: [{ model: Activity, as: 'activity' }],
+            order: [['visitedAt', 'DESC']]
+        });
+        return flexMessageBuilder.buildMapCard(visitedList);
+    }
+
     // ========== 想去清單 ==========
     if (matchKeywords(lowerText, ['想去清單', '想去', '我的收藏活動', '收藏活動'])) {
         var wishlist = await userService.getWishlist(user.id);
@@ -180,7 +196,6 @@ async function handleKeywordMessage(text, user, client, event) {
     // ========== AI 行程規劃（國內外都支援）==========
     var travelRequest = aiTourService.parseTravelRequest(text);
     if (travelRequest) {
-        // 先回覆「正在規劃」
         await client.replyMessage({
             replyToken: event.replyToken,
             messages: [{
@@ -189,14 +204,13 @@ async function handleKeywordMessage(text, user, client, event) {
             }]
         });
 
-        // 非同步生成行程
         setTimeout(async function() {
             try {
                 var tours = await aiTourService.generateTourWithDualAI(text);
                 
                 for (var i = 0; i < tours.length; i++) {
                     var tour = tours[i];
-                    var dbId = await tourPlanService.saveTourToDb(user.id, tour);
+                    var dbId = await aiTourService.saveTourToDb(user.id, tour);
                     
                     var itineraryText = (tour.itinerary || []).map(function(d) {
                         return '📅 Day' + d.day + ' ' + (d.title || '') + '\n   ' + (d.activities || []).join('、');
@@ -232,7 +246,7 @@ async function handleKeywordMessage(text, user, client, event) {
                                     ]},
                                     { type: 'box', layout: 'horizontal', margin: 'md', contents: [
                                         { type: 'text', text: '💰 預算', size: 'sm', color: '#888888', flex: 2 },
-                                        { type: 'text', text: '$' + (tour.estimatedCost?.min || 30000) + '-$' + (tour.estimatedCost?.max || 50000), size: 'sm', color: '#E74C3C', flex: 3, weight: 'bold' }
+                                        { type: 'text', text: '$' + (tour.estimatedCost ? tour.estimatedCost.min : 30000) + '-$' + (tour.estimatedCost ? tour.estimatedCost.max : 50000), size: 'sm', color: '#E74C3C', flex: 3, weight: 'bold' }
                                     ]},
                                     { type: 'separator', margin: 'lg' },
                                     { type: 'text', text: '✨ 亮點', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
@@ -263,7 +277,7 @@ async function handleKeywordMessage(text, user, client, event) {
                                         action: {
                                             type: 'uri',
                                             label: '📤 分享給好友',
-                                            uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + (tour.name || '精彩行程') + '\n📍 ' + (tour.country || travelRequest.destination) + ' ' + (tour.days || travelRequest.days) + '天\n💰 預算 $' + (tour.estimatedCost?.min || 30000) + '-$' + (tour.estimatedCost?.max || 50000) + '\n\n✨ 亮點：' + (tour.highlights || []).slice(0, 3).join('、') + '\n\n加入退休福音讓AI幫你規劃行程！\nhttps://line.me/R/ti/p/@024wclps')
+                                            uri: 'https://line.me/R/msg/text/?' + encodeURIComponent('🌍 推薦行程：' + (tour.name || '精彩行程') + '\n📍 ' + (tour.country || travelRequest.destination) + ' ' + (tour.days || travelRequest.days) + '天\n💰 預算 $' + (tour.estimatedCost ? tour.estimatedCost.min : 30000) + '-$' + (tour.estimatedCost ? tour.estimatedCost.max : 50000) + '\n\n✨ 亮點：' + (tour.highlights || []).slice(0, 3).join('、') + '\n\n加入退休福音讓AI幫你規劃行程！\nhttps://line.me/R/ti/p/@024wclps')
                                         },
                                         style: 'primary',
                                         color: '#2ECC71',
@@ -278,6 +292,9 @@ async function handleKeywordMessage(text, user, client, event) {
                     await client.pushMessage({ to: user.lineUserId, messages: [flexMessage] });
                     if (i < tours.length - 1) await new Promise(function(r) { setTimeout(r, 500); });
                 }
+                
+                // 更新用戶統計
+                await User.increment('totalTours', { where: { id: user.id } });
                 
             } catch (err) {
                 logger.error('AI Tour error:', err.message);
@@ -337,11 +354,23 @@ async function handleKeywordMessage(text, user, client, event) {
         return flexMessageBuilder.buildCommunityList();
     }
 
+    // ========== 統計 ==========
+    if (matchKeywords(lowerText, ['統計', '我的統計', '數據'])) {
+        var stats = await userService.getUserStats(user.id);
+        var message = '📊 您的統計數據\n━━━━━━━━━━━━━━━\n\n';
+        message += '🏆 ' + (stats.expertTitle || '新手旅人') + '\n';
+        message += '📍 已探索 ' + (stats.visitedCount || 0) + ' 個景點\n';
+        message += '❤️ 想去清單 ' + (stats.wishlistCount || 0) + ' 個\n';
+        message += '⭐ 累積 ' + (stats.points || 0) + ' 積分\n\n';
+        message += '輸入「達人」查看詳細資訊！';
+        return { type: 'text', text: message };
+    }
+
     // ========== 打招呼 ==========
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         var hour = new Date().getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看活動\n💡 輸入「今日推薦」精選活動\n☁️ 輸入「天氣」查看天氣\n💊 輸入「健康」管理提醒' };
+        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n❤️ 輸入「想去清單」查看活動' };
     }
 
     // ========== 幫助 ==========
@@ -360,7 +389,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -384,6 +413,20 @@ async function handlePostback(event, client) {
         var response;
 
         switch (action) {
+            case 'my_expert':
+                var status = await userService.getExpertStatus(user.id);
+                response = flexMessageBuilder.buildExpertCard(status);
+                break;
+
+            case 'my_map':
+                var visitedList = await UserWishlist.findAll({
+                    where: { userId: user.id, isVisited: true },
+                    include: [{ model: Activity, as: 'activity' }],
+                    order: [['visitedAt', 'DESC']]
+                });
+                response = flexMessageBuilder.buildMapCard(visitedList);
+                break;
+
             case 'save_tour':
                 var saveId = params.get('id');
                 if (saveId && saveId !== 'none') {
@@ -526,9 +569,17 @@ async function handlePostback(event, client) {
             case 'toggle_visited':
                 var toggleActId = params.get('id');
                 var toggled = await userService.markAsVisited(user.id, toggleActId);
-                response = toggled
-                    ? { type: 'text', text: '✅ 已標記為去過！\n\n輸入「想去清單」查看' }
-                    : { type: 'text', text: '⚠️ 標記失敗' };
+                if (toggled) {
+                    // 檢查是否升級
+                    var newStatus = await userService.getExpertStatus(user.id);
+                    var levelUpMsg = '';
+                    if (newStatus && newStatus.visitedCount % 10 === 0 && newStatus.visitedCount > 0) {
+                        levelUpMsg = '\n\n🎉 恭喜！已達成 ' + newStatus.visitedCount + ' 個景點！\n🏆 ' + newStatus.title;
+                    }
+                    response = { type: 'text', text: '✅ 已標記為去過！' + levelUpMsg + '\n\n輸入「達人」查看等級\n輸入「地圖」查看足跡' };
+                } else {
+                    response = { type: 'text', text: '⚠️ 標記失敗' };
+                }
                 break;
 
             case 'my_wishlist':
@@ -614,7 +665,7 @@ async function handlePostback(event, client) {
                 break;
 
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {
@@ -637,7 +688,7 @@ async function handleLocationMessage(event, client) {
 }
 
 async function handleStickerMessage(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！' }] });
+    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！\n🏆 輸入「達人」查看您的等級！' }] });
 }
 
 async function handleImageMessage(event, client) {

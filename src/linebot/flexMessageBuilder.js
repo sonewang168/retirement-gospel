@@ -354,7 +354,153 @@ function buildWishlistCard(list) {
     });
     return { type: 'flex', altText: '想去清單(' + list.length + '個)', contents: { type: 'carousel', contents: bubbles } };
 }
+function buildExpertCard(status) {
+    if (!status) return { type: 'text', text: '無法取得達人資訊' };
 
+    var user = status.user;
+    var progressBar = '';
+    var progressPercent = status.progress || 0;
+    var filled = Math.round(progressPercent / 10);
+    for (var i = 0; i < 10; i++) {
+        progressBar += i < filled ? '🟩' : '⬜';
+    }
+
+    var categoryText = '';
+    var cats = status.categoryCount || {};
+    var catNames = { culture: '文化', nature: '自然', religion: '宗教', food: '美食', sports: '運動', entertainment: '娛樂' };
+    Object.keys(cats).forEach(function(cat) {
+        categoryText += catNames[cat] + ':' + cats[cat] + ' ';
+    });
+
+    var badgeText = (status.badges || []).slice(0, 6).join('\n') || '尚無徽章';
+
+    var recentText = '';
+    if (status.recentVisited && status.recentVisited.length > 0) {
+        recentText = status.recentVisited.slice(0, 3).map(function(item) {
+            return '✅ ' + (item.activity ? item.activity.name : '景點');
+        }).join('\n');
+    } else {
+        recentText = '尚無打卡紀錄';
+    }
+
+    return {
+        type: 'flex', altText: '我的達人資訊',
+        contents: {
+            type: 'bubble', size: 'giga',
+            header: {
+                type: 'box', layout: 'vertical', backgroundColor: '#E74C3C', paddingAll: 'xl',
+                contents: [
+                    { type: 'text', text: status.title, weight: 'bold', size: 'xl', color: '#ffffff', align: 'center' },
+                    { type: 'text', text: 'Lv.' + status.level, size: 'md', color: '#ffffff', align: 'center', margin: 'sm' }
+                ]
+            },
+            body: {
+                type: 'box', layout: 'vertical', paddingAll: 'xl',
+                contents: [
+                    { type: 'box', layout: 'horizontal', contents: [
+                        { type: 'text', text: '📍 探索景點', size: 'sm', color: '#888888', flex: 2 },
+                        { type: 'text', text: status.visitedCount + ' 個', size: 'sm', color: '#333333', flex: 1, weight: 'bold' }
+                    ]},
+                    { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+                        { type: 'text', text: '⭐ 累積積分', size: 'sm', color: '#888888', flex: 2 },
+                        { type: 'text', text: status.points + ' 點', size: 'sm', color: '#E74C3C', flex: 1, weight: 'bold' }
+                    ]},
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '📊 升級進度', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                    { type: 'text', text: progressBar + ' ' + progressPercent + '%', size: 'sm', margin: 'sm' },
+                    { type: 'text', text: status.nextLevelVisits ? '還需 ' + (status.nextLevelVisits - status.visitedCount) + ' 個景點升級' : '已達最高等級！', size: 'xs', color: '#888888', margin: 'sm' },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '🏷️ 分類統計', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                    { type: 'text', text: categoryText || '尚無統計', size: 'xs', color: '#666666', margin: 'sm', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '🎖️ 獲得徽章', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                    { type: 'text', text: badgeText, size: 'xs', color: '#666666', margin: 'sm', wrap: true },
+                    { type: 'separator', margin: 'lg' },
+                    { type: 'text', text: '📝 最近打卡', size: 'sm', color: '#E74C3C', weight: 'bold', margin: 'lg' },
+                    { type: 'text', text: recentText, size: 'xs', color: '#666666', margin: 'sm', wrap: true }
+                ]
+            },
+            footer: {
+                type: 'box', layout: 'horizontal', paddingAll: 'md',
+                contents: [
+                    { type: 'button', action: { type: 'postback', label: '🗺️ 我的地圖', data: 'action=my_map' }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
+                    { type: 'button', action: { type: 'postback', label: '🔍 找活動', data: 'action=explore_category&category=all' }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                ]
+            }
+        }
+    };
+}
+
+function buildMapCard(visitedList) {
+    if (!visitedList || visitedList.length === 0) {
+        return {
+            type: 'flex', altText: '我的探索地圖',
+            contents: {
+                type: 'bubble',
+                header: { type: 'box', layout: 'vertical', backgroundColor: '#3498DB', paddingAll: 'lg', contents: [{ type: 'text', text: '🗺️ 我的探索地圖', weight: 'bold', size: 'lg', color: '#ffffff' }] },
+                body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: [
+                    { type: 'text', text: '😢 還沒有打卡紀錄', size: 'md', color: '#666666' },
+                    { type: 'text', text: '去「找活動」探索景點，標記「去過」開始收集！', size: 'sm', color: '#888888', margin: 'md', wrap: true }
+                ]},
+                footer: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: [
+                    { type: 'button', action: { type: 'message', label: '🔍 找活動', text: '找活動' }, style: 'primary', color: '#E74C3C' }
+                ]}
+            }
+        };
+    }
+
+    // 依城市分組
+    var cityGroups = {};
+    visitedList.forEach(function(item) {
+        var city = item.activity ? item.activity.city : '其他';
+        if (!cityGroups[city]) cityGroups[city] = [];
+        cityGroups[city].push(item);
+    });
+
+    var bubbles = Object.keys(cityGroups).slice(0, 10).map(function(city) {
+        var items = cityGroups[city];
+        var spots = items.slice(0, 5).map(function(item) {
+            return {
+                type: 'box', layout: 'horizontal', margin: 'sm',
+                contents: [
+                    { type: 'text', text: '✅', size: 'sm', flex: 0 },
+                    { type: 'text', text: item.activity ? item.activity.name : '景點', size: 'sm', color: '#666666', flex: 1, margin: 'sm', wrap: true }
+                ]
+            };
+        });
+
+        if (items.length > 5) {
+            spots.push({ type: 'text', text: '...還有 ' + (items.length - 5) + ' 個', size: 'xs', color: '#888888', margin: 'sm' });
+        }
+
+        // Google Maps 連結
+        var firstItem = items[0];
+        var mapQuery = firstItem.activity ? encodeURIComponent(firstItem.activity.address || firstItem.activity.name) : '';
+
+        return {
+            type: 'bubble', size: 'kilo',
+            header: {
+                type: 'box', layout: 'vertical', backgroundColor: '#27AE60', paddingAll: 'md',
+                contents: [
+                    { type: 'text', text: '📍 ' + city, weight: 'bold', size: 'md', color: '#ffffff' },
+                    { type: 'text', text: items.length + ' 個景點', size: 'xs', color: '#ffffff' }
+                ]
+            },
+            body: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: spots },
+            footer: {
+                type: 'box', layout: 'vertical', paddingAll: 'sm',
+                contents: [
+                    { type: 'button', action: { type: 'uri', label: '🗺️ 開啟地圖', uri: 'https://www.google.com/maps/search/?api=1&query=' + mapQuery }, style: 'primary', color: '#3498DB', height: 'sm' }
+                ]
+            }
+        };
+    });
+
+    return {
+        type: 'flex', altText: '我的探索地圖（' + visitedList.length + '個景點）',
+        contents: { type: 'carousel', contents: bubbles }
+    };
+}
 module.exports = {
     buildDailyRecommendations: buildDailyRecommendations,
     buildActivityDetail: buildActivityDetail,
@@ -373,5 +519,7 @@ module.exports = {
     buildOnboardingStart: buildOnboardingStart,
     buildOnboardingStep1: buildOnboardingStep1,
     buildNearbyActivities: buildNearbyActivities,
-    buildWishlistCard: buildWishlistCard
+    buildWishlistCard: buildWishlistCard,
+	buildExpertCard: buildExpertCard,
+    buildMapCard: buildMapCard
 };

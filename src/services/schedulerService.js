@@ -1,9 +1,9 @@
 /**
- * 排程服務（修正版）
+ * 排程服務（多種推播類型）
  */
 const cron = require('node-cron');
 const logger = require('../utils/logger');
-const { User, Activity } = require('../models');
+const { User, Activity, HealthReminder, UserWishlist } = require('../models');
 const weatherService = require('./weatherService');
 
 class SchedulerService {
@@ -11,7 +11,6 @@ class SchedulerService {
         this.lineClient = null;
     }
 
-    // 改名為 initScheduler（與 app.js 匹配）
     initScheduler(lineClient) {
         this.lineClient = lineClient;
         this.startAllJobs();
@@ -29,17 +28,40 @@ class SchedulerService {
             this.checkWeatherAlerts();
         });
 
-        logger.info('排程服務啟動');
+        // 每天早上8點檢查回診提醒
+        cron.schedule('0 8 * * *', () => {
+            this.checkAppointmentReminders();
+        });
+
+        // 每天檢查用藥提醒（每小時）
+        cron.schedule('0 * * * *', () => {
+            this.checkMedicationReminders();
+        });
+
+        // 每週一早上9點發送週報
+        cron.schedule('0 9 * * 1', () => {
+            this.sendWeeklyReport();
+        });
+
+        // 每天檢查生日祝福
+        cron.schedule('0 9 * * *', () => {
+            this.checkBirthdayGreetings();
+        });
+
+        // 節日問候（每天早上8點檢查）
+        cron.schedule('0 8 * * *', () => {
+            this.checkHolidayGreetings();
+        });
+
+        logger.info('所有排程任務已啟動');
     }
 
-    // 取得台灣時間
     getTaiwanTime() {
         var now = new Date();
         var taiwanTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
         return taiwanTime;
     }
 
-    // 取得問候語（根據台灣時間）
     getGreeting() {
         var taiwanTime = this.getTaiwanTime();
         var hour = taiwanTime.getUTCHours();
@@ -53,7 +75,7 @@ class SchedulerService {
         }
     }
 
-    // 檢查個人化推播
+    // ========== 早安推播 ==========
     async checkPersonalizedPush() {
         try {
             var taiwanTime = this.getTaiwanTime();
@@ -76,7 +98,6 @@ class SchedulerService {
         }
     }
 
-    // 發送早安推播
     async sendMorningPush(user) {
         if (!this.lineClient) return;
 
@@ -111,7 +132,13 @@ class SchedulerService {
                 recommendText = '\n\n🎯 今日推薦：' + randomAct.name;
             }
 
-            var message = greeting + '，' + displayName + '！' + weatherText + advice + recommendText;
+            // 達人進度
+            var expertText = '';
+            if (user.visitedCount > 0) {
+                expertText = '\n\n🏆 ' + user.expertTitle + '（' + user.visitedCount + '個景點）';
+            }
+
+            var message = greeting + '，' + displayName + '！' + weatherText + advice + recommendText + expertText;
             message += '\n\n輸入「今日推薦」看更多精彩活動 😊';
 
             await this.lineClient.pushMessage(user.lineUserId, {
@@ -125,7 +152,7 @@ class SchedulerService {
         }
     }
 
-    // 檢查天氣警報
+    // ========== 天氣警報 ==========
     async checkWeatherAlerts() {
         try {
             var users = await User.findAll({
@@ -140,7 +167,6 @@ class SchedulerService {
         }
     }
 
-    // 檢查單一用戶天氣警報
     async checkUserWeatherAlert(user) {
         if (!this.lineClient) return;
 
@@ -164,6 +190,10 @@ class SchedulerService {
                 alerts.push('🌧️ 降雨提醒：今日有降雨機會，出門記得帶傘！');
             }
 
+            if (weather.humidity >= 85) {
+                alerts.push('💧 高濕度提醒：濕度 ' + weather.humidity + '%，注意除濕！');
+            }
+
             if (alerts.length > 0) {
                 var message = '⚠️ 天氣提醒\n\n' + alerts.join('\n\n');
                 await this.lineClient.pushMessage(user.lineUserId, {
@@ -177,7 +207,211 @@ class SchedulerService {
         }
     }
 
-    // 手動觸發早安推播（測試用）
+    // ========== 回診提醒 ==========
+    async checkAppointmentReminders() {
+        if (!this.lineClient) return;
+
+        try {
+            var taiwanTime = this.getTaiwanTime();
+            var today = taiwanTime.toISOString().split('T')[0];
+            var tomorrow = new Date(taiwanTime.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            var reminders = await HealthReminder.findAll({
+                where: {
+                    type: 'appointment',
+                    isActive: true
+                }
+            });
+
+            for (var reminder of reminders) {
+                var appointmentDate = reminder.appointmentDate;
+                
+                if (appointmentDate === today) {
+                    // 今天回診
+                    var user = await User.findByPk(reminder.userId);
+                    if (user && user.notificationEnabled) {
+                        var message = '🏥 今日回診提醒！\n\n';
+                        message += '📅 今天 ' + (reminder.appointmentTime || '') + '\n';
+                        message += '🏥 ' + reminder.hospitalName + '\n';
+                        if (reminder.department) message += '🩺 ' + reminder.department + '\n';
+                        message += '\n祝您看診順利！😊';
+                        
+                        await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+                        logger.info('今日回診提醒已發送: ' + reminder.hospitalName);
+                    }
+                } else if (appointmentDate === tomorrow) {
+                    // 明天回診
+                    var user = await User.findByPk(reminder.userId);
+                    if (user && user.notificationEnabled) {
+                        var message = '🏥 明日回診提醒\n\n';
+                        message += '📅 明天 ' + (reminder.appointmentTime || '') + '\n';
+                        message += '🏥 ' + reminder.hospitalName + '\n';
+                        if (reminder.department) message += '🩺 ' + reminder.department + '\n';
+                        message += '\n記得準備健保卡！';
+                        
+                        await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+                        logger.info('明日回診提醒已發送: ' + reminder.hospitalName);
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('回診提醒檢查錯誤:', error);
+        }
+    }
+
+    // ========== 用藥提醒 ==========
+    async checkMedicationReminders() {
+        if (!this.lineClient) return;
+
+        try {
+            var taiwanTime = this.getTaiwanTime();
+            var currentHour = taiwanTime.getUTCHours();
+            var currentTimeStr = String(currentHour).padStart(2, '0') + ':00';
+
+            var reminders = await HealthReminder.findAll({
+                where: {
+                    type: 'medication',
+                    isActive: true
+                }
+            });
+
+            for (var reminder of reminders) {
+                var times = reminder.reminderTimes || [];
+                
+                for (var time of times) {
+                    if (time.includes(currentTimeStr) || this.matchTimeSlot(time, currentHour)) {
+                        var user = await User.findByPk(reminder.userId);
+                        if (user && user.notificationEnabled) {
+                            var message = '💊 用藥提醒\n\n';
+                            message += '💊 ' + reminder.medicationName + '\n';
+                            if (reminder.dosage) message += '📊 ' + reminder.dosage + '\n';
+                            message += '\n記得按時服藥，保持健康！💪';
+                            
+                            await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+                            logger.info('用藥提醒已發送: ' + reminder.medicationName);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('用藥提醒檢查錯誤:', error);
+        }
+    }
+
+    matchTimeSlot(timeStr, hour) {
+        if (timeStr.includes('早') && hour >= 6 && hour <= 9) return true;
+        if (timeStr.includes('中午') && hour >= 11 && hour <= 13) return true;
+        if (timeStr.includes('晚') && hour >= 17 && hour <= 20) return true;
+        if (timeStr.includes('睡前') && hour >= 21 && hour <= 23) return true;
+        return false;
+    }
+
+    // ========== 週報 ==========
+    async sendWeeklyReport() {
+        if (!this.lineClient) return;
+
+        try {
+            var users = await User.findAll({
+                where: { notificationEnabled: true }
+            });
+
+            for (var user of users) {
+                var wishlistCount = await UserWishlist.count({ where: { userId: user.id } });
+                var visitedCount = await UserWishlist.count({ where: { userId: user.id, isVisited: true } });
+
+                var message = '📊 您的每週報告\n';
+                message += '━━━━━━━━━━━━━━━\n\n';
+                message += '🏆 ' + user.expertTitle + '\n';
+                message += '📍 已探索 ' + visitedCount + ' 個景點\n';
+                message += '❤️ 想去清單 ' + wishlistCount + ' 個\n';
+                message += '⭐ 累積 ' + (user.totalPoints || 0) + ' 點\n\n';
+                message += '繼續探索，下週更精彩！🎉';
+
+                await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+            }
+
+            logger.info('週報已發送');
+        } catch (error) {
+            logger.error('週報發送錯誤:', error);
+        }
+    }
+
+    // ========== 生日祝福 ==========
+    async checkBirthdayGreetings() {
+        if (!this.lineClient) return;
+
+        try {
+            var taiwanTime = this.getTaiwanTime();
+            var today = (taiwanTime.getUTCMonth() + 1) + '-' + taiwanTime.getUTCDate();
+
+            var users = await User.findAll({
+                where: { notificationEnabled: true }
+            });
+
+            for (var user of users) {
+                if (user.birthday) {
+                    var bday = new Date(user.birthday);
+                    var bdayStr = (bday.getMonth() + 1) + '-' + bday.getDate();
+                    
+                    if (bdayStr === today) {
+                        var message = '🎂 生日快樂！\n\n';
+                        message += '親愛的 ' + (user.displayName || '朋友') + '，\n';
+                        message += '祝您生日快樂！🎉🎈🎁\n\n';
+                        message += '願您健康平安，天天開心！\n';
+                        message += '退休福音陪您度過美好的每一天 ❤️';
+
+                        await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+                        logger.info('生日祝福已發送給: ' + user.displayName);
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error('生日祝福檢查錯誤:', error);
+        }
+    }
+
+    // ========== 節日問候 ==========
+    async checkHolidayGreetings() {
+        if (!this.lineClient) return;
+
+        try {
+            var taiwanTime = this.getTaiwanTime();
+            var monthDay = (taiwanTime.getUTCMonth() + 1) + '-' + taiwanTime.getUTCDate();
+
+            var holidays = {
+                '1-1': { name: '元旦', emoji: '🎊', message: '新年快樂！祝您新的一年健康平安！' },
+                '2-14': { name: '情人節', emoji: '💕', message: '情人節快樂！願愛與幸福常伴左右！' },
+                '4-4': { name: '兒童節', emoji: '🧒', message: '兒童節快樂！保持童心，快樂每一天！' },
+                '5-1': { name: '勞動節', emoji: '💪', message: '勞動節快樂！感謝您的辛勤付出！' },
+                '8-8': { name: '父親節', emoji: '👨', message: '父親節快樂！祝天下爸爸健康幸福！' },
+                '9-28': { name: '教師節', emoji: '📚', message: '教師節快樂！感謝所有老師的付出！' },
+                '10-10': { name: '國慶日', emoji: '🇹🇼', message: '國慶日快樂！' },
+                '12-25': { name: '聖誕節', emoji: '🎄', message: '聖誕快樂！Merry Christmas！' }
+            };
+
+            var holiday = holidays[monthDay];
+            if (!holiday) return;
+
+            var users = await User.findAll({
+                where: { notificationEnabled: true }
+            });
+
+            for (var user of users) {
+                var message = holiday.emoji + ' ' + holiday.name + '快樂！\n\n';
+                message += '親愛的 ' + (user.displayName || '朋友') + '，\n';
+                message += holiday.message + '\n\n';
+                message += '退休福音祝您佳節愉快 🎉';
+
+                await this.lineClient.pushMessage(user.lineUserId, { type: 'text', text: message });
+            }
+
+            logger.info(holiday.name + '問候已發送');
+        } catch (error) {
+            logger.error('節日問候錯誤:', error);
+        }
+    }
+
+    // 手動觸發
     async triggerMorningPush(userId) {
         try {
             var user = await User.findOne({ where: { lineUserId: userId } });

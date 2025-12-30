@@ -1,5 +1,5 @@
 /**
- * User Model
+ * User Model（達人等級版）
  */
 const { DataTypes } = require('sequelize');
 
@@ -11,56 +11,78 @@ module.exports = (sequelize) => {
             primaryKey: true
         },
         lineUserId: {
-            type: DataTypes.STRING(50),
+            type: DataTypes.STRING,
             allowNull: false,
-            unique: true,
-            field: 'line_user_id'
+            unique: true
         },
         displayName: {
-            type: DataTypes.STRING(100),
-            field: 'display_name'
+            type: DataTypes.STRING,
+            allowNull: true
         },
         pictureUrl: {
-            type: DataTypes.STRING(500),
-            field: 'picture_url'
+            type: DataTypes.TEXT,
+            allowNull: true
         },
         city: {
-            type: DataTypes.STRING(50),
+            type: DataTypes.STRING,
             defaultValue: '高雄市'
         },
-        district: {
-            type: DataTypes.STRING(50)
-        },
         interests: {
-            type: DataTypes.JSONB,
+            type: DataTypes.ARRAY(DataTypes.STRING),
             defaultValue: []
         },
         notificationEnabled: {
             type: DataTypes.BOOLEAN,
-            defaultValue: true,
-            field: 'notification_enabled'
+            defaultValue: true
         },
         morningPushTime: {
-            type: DataTypes.STRING(10),
-            defaultValue: '06:00',
-            field: 'morning_push_time'
+            type: DataTypes.STRING,
+            defaultValue: '06:00'
         },
-        referralCode: {
-            type: DataTypes.STRING(10),
-            field: 'referral_code'
+        // 達人系統
+        visitedCount: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0
         },
-        onboardingCompleted: {
-            type: DataTypes.BOOLEAN,
-            defaultValue: false,
-            field: 'onboarding_completed'
+        expertLevel: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0
+        },
+        expertTitle: {
+            type: DataTypes.STRING,
+            defaultValue: '新手旅人'
+        },
+        badges: {
+            type: DataTypes.ARRAY(DataTypes.STRING),
+            defaultValue: []
+        },
+        totalPoints: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0
+        },
+        // 統計
+        totalTours: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0
         },
         lastActiveAt: {
             type: DataTypes.DATE,
-            field: 'last_active_at'
+            defaultValue: DataTypes.NOW
+        },
+        birthday: {
+            type: DataTypes.DATEONLY,
+            allowNull: true
+        },
+        onboardingCompleted: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+        },
+        referralCode: {
+            type: DataTypes.STRING,
+            allowNull: true
         }
     }, {
         tableName: 'users',
-        underscored: true,
         timestamps: true
     });
 
