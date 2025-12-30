@@ -343,5 +343,35 @@ router.get('/fix-db', async (req, res) => {
 router.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
+// ============================================
+// 清除用戶資料 API
+// ============================================
+router.get('/clear-wishlist', async (req, res) => {
+    try {
+        var lineUserId = req.query.userId;
+        if (!lineUserId) {
+            return res.json({ error: '請提供 userId 參數' });
+        }
+        
+        var user = await User.findOne({ where: { lineUserId: lineUserId } });
+        if (!user) {
+            return res.json({ error: '找不到用戶' });
+        }
+        
+        var deleted = await UserWishlist.destroy({ where: { userId: user.id } });
+        
+        // 重置達人等級
+        await user.update({
+            visitedCount: 0,
+            expertLevel: 0,
+            expertTitle: '🌱 新手旅人',
+            badges: [],
+            totalPoints: 0
+        });
+        
+        res.json({ success: true, message: '已清除 ' + deleted + ' 筆想去清單，達人等級已重置' });
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
 module.exports = router;
