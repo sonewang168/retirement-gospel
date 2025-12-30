@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（揪團功能整合版）
+ * LINE Bot Controller（達人系統版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -7,12 +7,11 @@ const recommendationService = require('../services/recommendationService');
 const conversationService = require('../services/conversationService');
 const groupService = require('../services/groupService');
 const flexMessageBuilder = require('../linebot/flexMessageBuilder');
-const groupFlexBuilder = require('../linebot/groupFlexBuilder');
 const richMenuService = require('../linebot/richMenuService');
 const tourPlanService = require('../services/tourPlanService');
 const healthReminderService = require('../services/healthReminderService');
 const aiTourService = require('../services/aiTourService');
-const { User, ConversationState, Activity, UserWishlist, Group, GroupMember } = require('../models');
+const { User, ConversationState, Activity, UserWishlist } = require('../models');
 
 async function handleFollow(event, client) {
     var userId = event.source.userId;
@@ -25,7 +24,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n🎉 輸入「揪團」找人一起玩\n💡 輸入「今日推薦」看精選活動' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n💡 輸入「今日推薦」看精選活動' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -47,7 +46,6 @@ async function handleTextMessage(event, client) {
 
         var conversationState = await ConversationState.findOne({ where: { userId: user.id } });
         
-        // 處理新增回診流程
         if (conversationState && conversationState.currentFlow === 'add_appointment') {
             var parsed = healthReminderService.parseAppointmentInput(text);
             if (parsed) {
@@ -67,7 +65,6 @@ async function handleTextMessage(event, client) {
             }
         }
         
-        // 處理新增用藥流程
         if (conversationState && conversationState.currentFlow === 'add_medication') {
             var parsed = healthReminderService.parseMedicationInput(text);
             if (parsed) {
@@ -87,20 +84,7 @@ async function handleTextMessage(event, client) {
             }
         }
 
-        // 處理建立揪團流程
-        if (conversationState && conversationState.currentFlow === 'create_group') {
-            var groupResponse = await handleCreateGroupFlow(event, client, user, conversationState, text);
-            if (groupResponse) {
-                await client.replyMessage({ replyToken: event.replyToken, messages: [groupResponse] });
-            }
-            return;
-        }
-
-        // 處理其他對話流程
-        if (conversationState && conversationState.currentFlow && 
-            conversationState.currentFlow !== 'add_appointment' && 
-            conversationState.currentFlow !== 'add_medication' &&
-            conversationState.currentFlow !== 'create_group') {
+        if (conversationState && conversationState.currentFlow && conversationState.currentFlow !== 'add_appointment' && conversationState.currentFlow !== 'add_medication') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
 
@@ -309,6 +293,7 @@ async function handleKeywordMessage(text, user, client, event) {
                     if (i < tours.length - 1) await new Promise(function(r) { setTimeout(r, 500); });
                 }
                 
+                // 更新用戶統計
                 await User.increment('totalTours', { where: { id: user.id } });
                 
             } catch (err) {
@@ -331,19 +316,10 @@ async function handleKeywordMessage(text, user, client, event) {
         return flexMessageBuilder.buildExploreCategories();
     }
 
-    // ========== 揪團功能 ==========
-    if (matchKeywords(lowerText, ['揪團', '揪團列表', '找揪團', '揪一揪', '揪人', '找人', '一起去'])) {
+    // ========== 揪團 ==========
+    if (matchKeywords(lowerText, ['揪團', '揪人', '找人', '一起去'])) {
         var groups = await groupService.getOpenGroups(user.city);
-        return groupFlexBuilder.buildGroupList(groups);
-    }
-
-    if (matchKeywords(lowerText, ['我的揪團', '已參加', '參加的揪團'])) {
-        var myGroups = await groupService.getUserGroups(user.id);
-        return groupFlexBuilder.buildMyGroups(myGroups);
-    }
-
-    if (matchKeywords(lowerText, ['發起揪團', '建立揪團', '新增揪團', '開團'])) {
-        return groupFlexBuilder.buildCreateGroupStep1();
+        return flexMessageBuilder.buildGroupList(groups);
     }
 
     // ========== 天氣 ==========
@@ -394,7 +370,7 @@ async function handleKeywordMessage(text, user, client, event) {
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
         var hour = new Date().getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n❤️ 輸入「想去清單」查看活動' };
+        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n❤️ 輸入「想去清單」查看活動' };
     }
 
     // ========== 幫助 ==========
@@ -413,7 +389,7 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -421,103 +397,6 @@ function matchKeywords(text, keywords) {
         if (text.includes(keywords[i])) return true;
     }
     return false;
-}
-
-// ========== 建立揪團對話流程 ==========
-async function handleCreateGroupFlow(event, client, convState, user, text) {
-    var flowData = convState.flowData || {};
-    var step = flowData.step || 1;
-
-    if (text === '取消') {
-        await convState.update({ currentFlow: null, flowData: null });
-        return { type: 'text', text: '已取消建立揪團\n\n輸入「揪團」瀏覽活動' };
-    }
-
-    var response;
-
-    switch (step) {
-        case 1:
-            flowData.title = text;
-            flowData.step = 2;
-            await convState.update({ flowData: flowData });
-            response = { type: 'text', text: '✅ 標題：' + text + '\n\n📅 請輸入活動日期：\n\n例如：1/20\n例如：2025/1/20\n\n或輸入「取消」返回' };
-            break;
-
-        case 2:
-            var dateMatch = text.match(/(\d{1,4})[\/\-]?(\d{1,2})[\/\-]?(\d{1,2})?/);
-            if (dateMatch) {
-                var year, month, day;
-                if (dateMatch[3]) {
-                    year = dateMatch[1].length === 4 ? dateMatch[1] : '2025';
-                    month = dateMatch[2].padStart(2, '0');
-                    day = dateMatch[3].padStart(2, '0');
-                } else {
-                    year = new Date().getFullYear();
-                    month = dateMatch[1].padStart(2, '0');
-                    day = dateMatch[2].padStart(2, '0');
-                }
-                flowData.eventDate = year + '-' + month + '-' + day;
-                flowData.step = 3;
-                await convState.update({ flowData: flowData });
-                response = { type: 'text', text: '✅ 日期：' + flowData.eventDate + '\n\n⏰ 請輸入集合時間：\n\n例如：09:00\n例如：下午2點\n\n或輸入「跳過」不設定時間' };
-            } else {
-                response = { type: 'text', text: '❓ 日期格式不正確\n\n請輸入：月/日 或 年/月/日\n例如：1/20 或 2025/1/20' };
-            }
-            break;
-
-        case 3:
-            if (text === '跳過') {
-                flowData.eventTime = null;
-            } else {
-                var timeMatch = text.match(/(\d{1,2}):?(\d{2})?/);
-                if (timeMatch) {
-                    var hour = timeMatch[1].padStart(2, '0');
-                    var minute = timeMatch[2] || '00';
-                    flowData.eventTime = hour + ':' + minute;
-                } else if (text.includes('下午') || text.includes('晚上')) {
-                    var numMatch = text.match(/(\d{1,2})/);
-                    if (numMatch) {
-                        var h = parseInt(numMatch[1]);
-                        if (h < 12) h += 12;
-                        flowData.eventTime = h + ':00';
-                    }
-                } else if (text.includes('早上') || text.includes('上午')) {
-                    var numMatch2 = text.match(/(\d{1,2})/);
-                    if (numMatch2) {
-                        flowData.eventTime = numMatch2[1].padStart(2, '0') + ':00';
-                    }
-                }
-            }
-            flowData.step = 4;
-            await convState.update({ flowData: flowData });
-            response = { type: 'text', text: '✅ 時間：' + (flowData.eventTime || '未設定') + '\n\n📍 請輸入集合地點：\n\n例如：高雄捷運左營站 1 號出口\n例如：壽山登山口\n\n或輸入「取消」返回' };
-            break;
-
-        case 4:
-            flowData.meetingPoint = text;
-            flowData.step = 5;
-            await convState.update({ flowData: flowData });
-            response = { type: 'text', text: '✅ 地點：' + text + '\n\n👥 請輸入人數上限：\n\n例如：10\n\n或輸入「跳過」使用預設 10 人' };
-            break;
-
-        case 5:
-            if (text === '跳過') {
-                flowData.maxParticipants = 10;
-            } else {
-                var num = parseInt(text);
-                flowData.maxParticipants = (num > 0 && num <= 100) ? num : 10;
-            }
-            flowData.step = 6;
-            await convState.update({ flowData: flowData });
-            response = groupFlexBuilder.buildCreateGroupConfirm(flowData);
-            break;
-
-        default:
-            await convState.update({ currentFlow: null, flowData: null });
-            response = { type: 'text', text: '⚠️ 流程異常，請重新發起揪團' };
-    }
-
-    return response;
 }
 
 async function handlePostback(event, client) {
@@ -691,6 +570,7 @@ async function handlePostback(event, client) {
                 var toggleActId = params.get('id');
                 var toggled = await userService.markAsVisited(user.id, toggleActId);
                 if (toggled) {
+                    // 檢查是否升級
                     var newStatus = await userService.getExpertStatus(user.id);
                     var levelUpMsg = '';
                     if (newStatus && newStatus.visitedCount % 10 === 0 && newStatus.visitedCount > 0) {
@@ -733,9 +613,9 @@ async function handlePostback(event, client) {
                 break;
 
             case 'toggle_notification':
-                var newNotifStatus = !user.notificationEnabled;
-                await user.update({ notificationEnabled: newNotifStatus });
-                response = { type: 'text', text: newNotifStatus ? '🔔 已開啟推播通知！\n\n每天 ' + (user.morningPushTime || '06:00') + ' 會收到早安問候' : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟' };
+                var newStatus = !user.notificationEnabled;
+                await user.update({ notificationEnabled: newStatus });
+                response = { type: 'text', text: newStatus ? '🔔 已開啟推播通知！\n\n每天 ' + (user.morningPushTime || '06:00') + ' 會收到早安問候' : '🔕 已關閉推播通知\n\n您可以隨時在「設定」中重新開啟' };
                 break;
 
             case 'health_menu':
@@ -762,6 +642,10 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '👨‍👩‍👧‍👦 邀請家人連結\n\n請將以下連結分享給您的家人：\n\nhttps://line.me/R/ti/p/@024wclps\n\n家人加入後，輸入您的邀請碼即可連結：\n🔑 ' + (user.referralCode || 'ABC123') };
                 break;
 
+            case 'create_group':
+                response = { type: 'text', text: '➕ 建立揪團\n\n請輸入揪團資訊：\n\n例如：1/20 登山健行 壽山' };
+                break;
+
             case 'join_community':
                 response = { type: 'text', text: '🎉 已加入社群！\n\n您已成功加入，可以開始與同好交流！' };
                 break;
@@ -780,129 +664,8 @@ async function handlePostback(event, client) {
                 response = { type: 'text', text: '輸入「日本5天」或「台南3天」試試AI行程！' };
                 break;
 
-            // ========== 揪團相關 Postback ==========
-            case 'browse_groups':
-                var groups = await groupService.getOpenGroups(user.city);
-                response = groupFlexBuilder.buildGroupList(groups);
-                break;
-
-            case 'view_group':
-                var groupId = params.get('id');
-                var group = await groupService.getGroupDetail(groupId);
-                var membership = await GroupMember.findOne({
-                    where: { groupId: groupId, userId: user.id }
-                });
-                response = groupFlexBuilder.buildGroupDetail(group, membership);
-                break;
-
-            case 'join_group':
-                var joinGroupId = params.get('id');
-                var joinResult = await groupService.joinGroup(joinGroupId, user.id);
-                if (joinResult.success) {
-                    if (joinResult.isWaitlist) {
-                        response = { type: 'text', text: '📝 已加入候補名單！\n\n有人退出時會自動通知您。\n\n輸入「我的揪團」查看狀態' };
-                    } else {
-                        response = { type: 'text', text: '🎉 報名成功！\n\n記得準時出席！\n\n輸入「我的揪團」查看詳情' };
-                    }
-                } else {
-                    response = { type: 'text', text: '⚠️ ' + joinResult.message };
-                }
-                break;
-
-            case 'leave_group':
-                var leaveGroupId = params.get('id');
-                try {
-                    await groupService.leaveGroup(leaveGroupId, user.id);
-                    response = { type: 'text', text: '✅ 已退出揪團\n\n輸入「揪團」找其他活動' };
-                } catch (e) {
-                    response = { type: 'text', text: '⚠️ ' + e.message };
-                }
-                break;
-
-            case 'checkin_group':
-                var checkinGroupId = params.get('id');
-                try {
-                    await groupService.checkIn(checkinGroupId, user.id);
-                    var checkedGroup = await Group.findByPk(checkinGroupId);
-                    response = groupFlexBuilder.buildCheckInSuccess(checkedGroup, null);
-                    await user.increment('totalPoints', { by: 20 });
-                } catch (e) {
-                    response = { type: 'text', text: '⚠️ ' + e.message };
-                }
-                break;
-
-            case 'cancel_group':
-                var cancelGroupId = params.get('id');
-                try {
-                    await groupService.cancelGroup(cancelGroupId, user.id, '團主取消');
-                    response = { type: 'text', text: '❌ 揪團已取消\n\n已通知所有參加者' };
-                } catch (e) {
-                    response = { type: 'text', text: '⚠️ ' + e.message };
-                }
-                break;
-
-            case 'group_members':
-                var membersGroupId = params.get('id');
-                var membersGroup = await groupService.getGroupDetail(membersGroupId);
-                if (membersGroup && membersGroup.members) {
-                    response = groupFlexBuilder.buildGroupMembers(membersGroup, membersGroup.members);
-                } else {
-                    response = { type: 'text', text: '目前沒有成員' };
-                }
-                break;
-
-            case 'create_group_start':
-                response = groupFlexBuilder.buildCreateGroupStep1();
-                break;
-
-            case 'create_group_type':
-                var groupType = params.get('type');
-                var [convStateGroup, createdGroup] = await ConversationState.findOrCreate({
-                    where: { userId: user.id },
-                    defaults: { userId: user.id }
-                });
-                await convStateGroup.update({
-                    currentFlow: 'create_group',
-                    flowData: { step: 1, type: groupType }
-                });
-                response = { type: 'text', text: '📝 請輸入揪團標題：\n\n例如：週末壽山登山\n例如：高雄美食探索團\n\n或輸入「取消」返回' };
-                break;
-
-            case 'create_group_confirm':
-                var convStateConfirm = await ConversationState.findOne({ where: { userId: user.id } });
-                if (convStateConfirm && convStateConfirm.flowData) {
-                    var gData = convStateConfirm.flowData;
-                    try {
-                        var newGroup = await groupService.createGroup(user.id, {
-                            title: gData.title,
-                            description: gData.description,
-                            eventDate: gData.eventDate,
-                            eventTime: gData.eventTime,
-                            meetingPoint: gData.meetingPoint,
-                            maxParticipants: gData.maxParticipants || 10,
-                            city: user.city
-                        });
-                        await convStateConfirm.update({ currentFlow: null, flowData: null });
-                        await user.increment('totalPoints', { by: 10 });
-                        response = { type: 'text', text: '🎉 揪團建立成功！\n\n📌 ' + newGroup.title + '\n🏆 獲得 10 積分\n\n快分享給朋友一起參加吧！\n\n輸入「我的揪團」查看詳情' };
-                    } catch (e) {
-                        response = { type: 'text', text: '⚠️ 建立失敗：' + e.message };
-                    }
-                } else {
-                    response = { type: 'text', text: '⚠️ 請重新發起揪團' };
-                }
-                break;
-
-            case 'create_group_cancel':
-                var convStateCancel = await ConversationState.findOne({ where: { userId: user.id } });
-                if (convStateCancel) {
-                    await convStateCancel.update({ currentFlow: null, flowData: null });
-                }
-                response = { type: 'text', text: '已取消建立揪團\n\n輸入「揪團」瀏覽其他活動' };
-                break;
-
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n🎉 揪團\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {
@@ -925,11 +688,11 @@ async function handleLocationMessage(event, client) {
 }
 
 async function handleStickerMessage(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！\n🏆 輸入「達人」查看您的等級！\n🎉 輸入「揪團」找人一起玩！' }] });
+    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '😊 輸入「日本5天」或「台南3天」試試AI規劃！\n🏆 輸入「達人」查看您的等級！' }] });
 }
 
 async function handleImageMessage(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸\n\n打卡照片功能即將推出！' }] });
+    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '收到照片！📸' }] });
 }
 
 async function handleVideoMessage(event, client) {
@@ -945,7 +708,7 @@ async function handleFileMessage(event, client) {
 }
 
 async function handleJoin(event, client) {
-    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '大家好！輸入「日本5天」試試AI規劃！🌅\n輸入「揪團」找人一起玩！🎉' }] });
+    await client.replyMessage({ replyToken: event.replyToken, messages: [{ type: 'text', text: '大家好！輸入「日本5天」試試AI規劃！🌅' }] });
 }
 
 async function handleLeave(event, client) { logger.info('Left'); }

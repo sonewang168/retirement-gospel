@@ -1,5 +1,5 @@
 /**
- * Models Index（揪團功能版）
+ * Models Index（關聯修正版）
  */
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
@@ -22,12 +22,8 @@ const TourPlan = require('./TourPlan')(sequelize);
 const ConversationState = require('./ConversationState')(sequelize);
 const HealthReminder = require('./HealthReminder')(sequelize);
 const UserWishlist = require('./UserWishlist')(sequelize);
-const Group = require('./Group')(sequelize);
-const GroupMember = require('./GroupMember')(sequelize);
-const Event = require('./Event')(sequelize);
 
-// ========== 既有關聯 ==========
-
+// 定義關聯
 User.hasMany(TourPlan, { foreignKey: 'userId', as: 'tourPlans' });
 TourPlan.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -37,33 +33,12 @@ ConversationState.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(HealthReminder, { foreignKey: 'userId', as: 'healthReminders' });
 HealthReminder.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// 想去清單關聯（重要：設定別名為小寫）
 User.hasMany(UserWishlist, { foreignKey: 'userId', as: 'wishlists' });
 UserWishlist.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Activity.hasMany(UserWishlist, { foreignKey: 'activityId', as: 'wishlists' });
 UserWishlist.belongsTo(Activity, { foreignKey: 'activityId', as: 'activity' });
-
-// ========== 揪團關聯 ==========
-
-// User <-> Group（發起者）
-User.hasMany(Group, { foreignKey: 'creatorId', as: 'createdGroups' });
-Group.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
-
-// Group <-> Activity（可選的關聯活動）
-Activity.hasMany(Group, { foreignKey: 'activityId', as: 'groups' });
-Group.belongsTo(Activity, { foreignKey: 'activityId', as: 'activity' });
-
-// Group <-> Event（可選的關聯事件）
-Event.hasMany(Group, { foreignKey: 'eventId', as: 'groups' });
-Group.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
-
-// Group <-> GroupMember
-Group.hasMany(GroupMember, { foreignKey: 'groupId', as: 'members' });
-GroupMember.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
-
-// User <-> GroupMember
-User.hasMany(GroupMember, { foreignKey: 'userId', as: 'groupMemberships' });
-GroupMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // 測試連線
 sequelize.authenticate()
@@ -78,8 +53,5 @@ module.exports = {
     TourPlan,
     ConversationState,
     HealthReminder,
-    UserWishlist,
-    Group,
-    GroupMember,
-    Event
+    UserWishlist
 };
