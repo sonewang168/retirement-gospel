@@ -418,7 +418,12 @@ async function handleKeywordMessage(text, user, client, event) {
 
     // ========== 打招呼 ==========
     if (matchKeywords(lowerText, ['你好', '哈囉', 'hi', 'hello', '嗨', '早安', '午安', '晚安'])) {
-        var hour = new Date().getHours();
+        // 使用台灣時間 (UTC+8)
+        var now = new Date();
+        var taiwanOffset = 8 * 60;
+        var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        var taiwanTime = new Date(utc + (taiwanOffset * 60000));
+        var hour = taiwanTime.getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
         return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n❤️ 輸入「想去清單」查看活動' };
     }
