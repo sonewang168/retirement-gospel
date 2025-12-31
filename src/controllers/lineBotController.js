@@ -782,8 +782,19 @@ async function handlePostback(event, client) {
 
             case 'set_push_time':
                 var newTime = params.get('time');
+                logger.info('=== 設定推播時間 ===');
+                logger.info('收到 postback data: ' + data);
+                logger.info('解析出 time 參數: ' + newTime);
+                logger.info('用戶: ' + user.displayName + ' (ID: ' + user.id + ')');
+                
                 await user.update({ morningPushTime: newTime });
-                response = { type: 'text', text: '✅ 早安推播時間已設定為：' + newTime + '\n\n每天 ' + newTime + ' 會收到早安問候 ☀️\n\n輸入「設定」查看完整設定' };
+                
+                // 重新讀取確認
+                await user.reload();
+                var savedTime = user.morningPushTime;
+                logger.info('資料庫存入後的值: ' + savedTime);
+                
+                response = { type: 'text', text: '✅ 早安推播時間已設定為：' + savedTime + '\n\n每天 ' + savedTime + ' 會收到早安問候 ☀️\n\n輸入「設定」查看完整設定' };
                 break;
 
             case 'toggle_notification':
