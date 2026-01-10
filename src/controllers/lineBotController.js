@@ -1,5 +1,5 @@
 /**
- * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 + GPS打卡 整合版）
+ * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 + GPS打卡 + 景點搜尋 整合版）
  */
 const logger = require('../utils/logger');
 const userService = require('../services/userService');
@@ -8,9 +8,11 @@ const conversationService = require('../services/conversationService');
 const groupService = require('../services/groupService');
 const familyService = require('../services/familyService');
 const imgbbService = require('../services/imgbbService');
+const placesService = require('../services/placesService');
 const flexMessageBuilder = require('../linebot/flexMessageBuilder');
 const groupFlexBuilder = require('../linebot/groupFlexBuilder');
 const familyFlexBuilder = require('../linebot/familyFlexBuilder');
+const placeFlexBuilder = require('../linebot/placeFlexBuilder');
 const richMenuService = require('../linebot/richMenuService');
 const tourPlanService = require('../services/tourPlanService');
 const healthReminderService = require('../services/healthReminderService');
@@ -350,8 +352,37 @@ async function handleKeywordMessage(text, user, client, event) {
     }
 
     // ========== 找活動 ==========
-    if (matchKeywords(lowerText, ['找活動', '探索', '附近', '景點', '去哪玩'])) {
+    if (matchKeywords(lowerText, ['找活動', '探索', '附近', '去哪玩'])) {
         return flexMessageBuilder.buildExploreCategories();
+    }
+
+    // ========== 新增景點/搜尋景點 ==========
+    if (matchKeywords(lowerText, ['新增景點', '搜尋景點', '找景點', '加景點'])) {
+        // 檢查是否帶有搜尋關鍵字
+        var searchMatch = text.match(/(?:新增景點|搜尋景點|找景點|加景點)\s*(.+)/);
+        if (searchMatch && searchMatch[1].trim()) {
+            // 直接搜尋
+            var query = searchMatch[1].trim();
+            var places = await placesService.searchPlaces(query);
+            return placeFlexBuilder.buildPlaceSearchResults(places, query);
+        } else {
+            // 提示輸入
+            await ConversationState.upsert({
+                userId: user.id,
+                currentState: 'waiting_place_search',
+                contextData: {}
+            });
+            return { type: 'text', text: '🔍 請輸入想搜尋的景點名稱\n\n例如：\n• 阿里山\n• 台南 赤崁樓\n• 日月潭\n• 東京迪士尼' };
+        }
+    }
+
+    // 處理景點搜尋的對話狀態
+    var convState = await ConversationState.findOne({ where: { userId: user.id } });
+    if (convState && convState.currentState === 'waiting_place_search') {
+        // 用戶輸入了搜尋關鍵字
+        var places = await placesService.searchPlaces(text);
+        await convState.update({ currentState: null, contextData: {} });
+        return placeFlexBuilder.buildPlaceSearchResults(places, text);
     }
 
     // ========== 揪團功能 ==========
@@ -708,6 +739,83 @@ async function handlePostback(event, client) {
                 } else {
                     response = { type: 'text', text: '⚠️ 收藏失敗，請重試' };
                 }
+                break;
+
+            case 'add_place':
+                // 從 Google Places 新增景點到想去清單
+                var placeId = params.get('placeId');
+                var placeName = decodeURIComponent(params.get('name') || '');
+                logger.info('新增景點: ' + placeName + ' (placeId: ' + placeId + ')');
+                
+                try {
+                    // 取得景點詳細資訊
+                    var placeDetails = await placesService.getPlaceDetails(placeId);
+                    
+                    if (placeDetails) {
+                        // 檢查是否已存在（用原始 SQL 查詢）
+                        var { sequelize } = require('../models');
+                        var [existingRows] = await sequelize.query(
+                            'SELECT id FROM activities WHERE google_place_id = :placeId LIMIT 1',
+                            { replacements: { placeId: placeId } }
+                        );
+                        
+                        var activityId;
+                        
+                        if (existingRows.length > 0) {
+                            activityId = existingRows[0].id;
+                        } else {
+                            // 建立新活動（用原始 SQL）
+                            var typeLabel = placesService.getTypeLabel(placeDetails.types);
+                            var cityName = placeFlexBuilder.extractCity(placeDetails.address);
+                            var [insertResult] = await sequelize.query(
+                                `INSERT INTO activities (id, name, description, category, city, address, lat, lng, image_url, google_place_id, rating, source, created_at, updated_at)
+                                 VALUES (gen_random_uuid(), :name, :description, :category, :city, :address, :lat, :lng, :imageUrl, :googlePlaceId, :rating, :source, NOW(), NOW())
+                                 RETURNING id`,
+                                {
+                                    replacements: {
+                                        name: placeDetails.name,
+                                        description: typeLabel + ' · ' + (placeDetails.address || ''),
+                                        category: typeLabel,
+                                        city: cityName,
+                                        address: placeDetails.address || '',
+                                        lat: placeDetails.lat || 0,
+                                        lng: placeDetails.lng || 0,
+                                        imageUrl: placeDetails.photo || null,
+                                        googlePlaceId: placeId,
+                                        rating: placeDetails.rating || null,
+                                        source: 'google_places'
+                                    }
+                                }
+                            );
+                            activityId = insertResult[0].id;
+                        }
+                        
+                        // 加入想去清單
+                        var added = await userService.addToWishlist(user.id, activityId);
+                        if (added === 'exists') {
+                            response = { type: 'text', text: '「' + placeName + '」已經在想去清單裡了 😊\n\n輸入「想去清單」查看' };
+                        } else if (added) {
+                            response = placeFlexBuilder.buildAddPlaceSuccess({ name: placeName });
+                        } else {
+                            response = { type: 'text', text: '⚠️ 新增失敗，請重試' };
+                        }
+                    } else {
+                        response = { type: 'text', text: '⚠️ 無法取得景點資訊，請重試' };
+                    }
+                } catch (addPlaceError) {
+                    logger.error('新增景點錯誤:', addPlaceError);
+                    response = { type: 'text', text: '⚠️ 新增失敗：' + addPlaceError.message };
+                }
+                break;
+
+            case 'search_place_prompt':
+                // 提示搜尋景點
+                await ConversationState.upsert({
+                    userId: user.id,
+                    currentState: 'waiting_place_search',
+                    contextData: {}
+                });
+                response = { type: 'text', text: '🔍 請輸入想搜尋的景點名稱\n\n例如：\n• 阿里山\n• 台南 赤崁樓\n• 日月潭\n• 東京迪士尼' };
                 break;
 
             case 'remove_wishlist':

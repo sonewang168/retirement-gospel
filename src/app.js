@@ -91,6 +91,15 @@ async function ensureTables() {
             console.log('✅ check_in_photo_url 欄位已確認');
         } catch (e) {}
 
+        // activities 表新增 Google Places 相關欄位
+        try {
+            await sequelize.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS google_place_id VARCHAR(255);');
+            await sequelize.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS rating DECIMAL(2,1);');
+            await sequelize.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS source VARCHAR(50);');
+            await sequelize.query('CREATE INDEX IF NOT EXISTS idx_activities_google_place_id ON activities(google_place_id);');
+            console.log('✅ activities Google Places 欄位已確認');
+        } catch (e) {}
+
         await sequelize.close();
         console.log('📦 資料庫結構檢查完成\n');
 
