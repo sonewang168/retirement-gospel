@@ -125,11 +125,12 @@ async function handleTextMessage(event, client) {
             conversationState.currentFlow !== 'create_group' &&
             conversationState.currentFlow !== 'input_invite_code' &&
             conversationState.currentFlow !== 'checkin_photo' &&
-            conversationState.currentFlow !== 'checkin_gps') {
+            conversationState.currentFlow !== 'checkin_gps' &&
+            conversationState.currentFlow !== 'waiting_place_search') {
             return await conversationService.handleFlowInput(event, client, user, conversationState, text);
         }
 
-        var response = await handleKeywordMessage(text, user, client, event);
+        var response = await handleKeywordMessage(text, user, client, event, conversationState);
         if (response) {
             await client.replyMessage({
                 replyToken: event.replyToken,
@@ -141,7 +142,7 @@ async function handleTextMessage(event, client) {
     }
 }
 
-async function handleKeywordMessage(text, user, client, event) {
+async function handleKeywordMessage(text, user, client, event, conversationState) {
     var lowerText = text.toLowerCase();
 
     // ========== 達人系統 ==========
@@ -366,22 +367,21 @@ async function handleKeywordMessage(text, user, client, event) {
             var places = await placesService.searchPlaces(query);
             return placeFlexBuilder.buildPlaceSearchResults(places, query);
         } else {
-            // 提示輸入
-            await ConversationState.upsert({
-                userId: user.id,
-                currentState: 'waiting_place_search',
-                contextData: {}
+            // 提示輸入，設定對話狀態
+            var [convStatePlace, createdPlace] = await ConversationState.findOrCreate({ 
+                where: { userId: user.id }, 
+                defaults: { userId: user.id } 
             });
+            await convStatePlace.update({ currentFlow: 'waiting_place_search', flowData: {} });
             return { type: 'text', text: '🔍 請輸入想搜尋的景點名稱\n\n例如：\n• 阿里山\n• 台南 赤崁樓\n• 日月潭\n• 東京迪士尼' };
         }
     }
 
     // 處理景點搜尋的對話狀態
-    var convState = await ConversationState.findOne({ where: { userId: user.id } });
-    if (convState && convState.currentState === 'waiting_place_search') {
+    if (conversationState && conversationState.currentFlow === 'waiting_place_search') {
         // 用戶輸入了搜尋關鍵字
         var places = await placesService.searchPlaces(text);
-        await convState.update({ currentState: null, contextData: {} });
+        await conversationState.update({ currentFlow: null, flowData: null });
         return placeFlexBuilder.buildPlaceSearchResults(places, text);
     }
 
@@ -810,11 +810,11 @@ async function handlePostback(event, client) {
 
             case 'search_place_prompt':
                 // 提示搜尋景點
-                await ConversationState.upsert({
-                    userId: user.id,
-                    currentState: 'waiting_place_search',
-                    contextData: {}
+                var [convStatePrompt, createdPrompt] = await ConversationState.findOrCreate({ 
+                    where: { userId: user.id }, 
+                    defaults: { userId: user.id } 
                 });
+                await convStatePrompt.update({ currentFlow: 'waiting_place_search', flowData: {} });
                 response = { type: 'text', text: '🔍 請輸入想搜尋的景點名稱\n\n例如：\n• 阿里山\n• 台南 赤崁樓\n• 日月潭\n• 東京迪士尼' };
                 break;
 
