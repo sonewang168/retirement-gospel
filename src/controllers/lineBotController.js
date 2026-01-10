@@ -464,6 +464,11 @@ async function handleKeywordMessage(text, user, client, event, conversationState
         return flexMessageBuilder.buildHelpMenu();
     }
 
+    // ========== 純文字指令清單 ==========
+    if (matchKeywords(lowerText, ['指令', '清單', '所有功能', '全部功能'])) {
+        return { type: 'text', text: '📋 完整功能清單：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n👨‍👩‍👧 家人 - 家人關懷\n❤️ 想去清單 - 收藏的活動\n🔍 新增景點 - 搜尋並加入景點\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n⚙️ 設定 - 修改城市推播\n❓ 幫助 - 功能說明卡片' };
+    }
+
     // ========== 客服 ==========
     if (matchKeywords(lowerText, ['客服', '意見', '建議', '問題'])) {
         return { type: 'text', text: '感謝您的意見！\n\n如有任何問題或建議，歡迎直接留言，我們會盡快回覆您 😊' };
