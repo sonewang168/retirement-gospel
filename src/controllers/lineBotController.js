@@ -30,7 +30,7 @@ async function handleFollow(event, client) {
             pictureUrl: profile.pictureUrl
         });
         await richMenuService.setDefaultMenu(client, userId);
-        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n💡 輸入「今日推薦」看精選活動' };
+        var msg = { type: 'text', text: '🌅 ' + profile.displayName + '，歡迎加入退休福音！\n\n🌍 輸入「日本5天」或「台南3天」讓AI幫您規劃行程！\n📋 輸入「我的行程」查看收藏\n❤️ 輸入「想去清單」查看收藏活動\n🔍 輸入「新增景點」搜尋景點\n🏆 輸入「達人」查看您的等級\n🗺️ 輸入「地圖」查看探索地圖\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n💡 輸入「今日推薦」看精選活動' };
         await client.replyMessage({ replyToken: event.replyToken, messages: [msg] });
     } catch (error) {
         logger.error('Follow error:', error);
@@ -456,7 +456,7 @@ async function handleKeywordMessage(text, user, client, event, conversationState
         var taiwanTime = new Date(utc + (taiwanOffset * 60000));
         var hour = taiwanTime.getHours();
         var greeting = hour >= 5 && hour < 12 ? '早安' : hour >= 12 && hour < 18 ? '午安' : '晚安';
-        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n❤️ 輸入「想去清單」查看活動' };
+        return { type: 'text', text: greeting + '！😊 ' + user.expertTitle + '\n\n🌍 輸入「日本5天」或「台南3天」AI規劃行程\n📋 輸入「我的行程」查看收藏\n🔍 輸入「新增景點」搜尋景點\n🏆 輸入「達人」查看等級徽章\n🗺️ 輸入「地圖」查看探索足跡\n🎉 輸入「揪團」找人一起玩\n👨‍👩‍👧 輸入「家人」連結家人關懷\n❤️ 輸入「想去清單」查看活動' };
     }
 
     // ========== 幫助 ==========
@@ -475,7 +475,7 @@ async function handleKeywordMessage(text, user, client, event, conversationState
     }
 
     // ========== 預設 ==========
-    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n👨‍👩‍👧 家人 - 家人關懷\n❤️ 想去清單 - 收藏的活動\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
+    return { type: 'text', text: '試試這些功能：\n\n🌍 日本5天 - AI規劃出國行程\n🏠 台南3天 - AI規劃國內行程\n📋 我的行程 - 查看收藏\n🏆 達人 - 查看等級徽章\n🗺️ 地圖 - 探索足跡\n🎉 揪團 - 找人一起玩\n👨‍👩‍👧 家人 - 家人關懷\n❤️ 想去清單 - 收藏的活動\n🔍 新增景點 - 搜尋並加入景點\n💡 今日推薦 - 精選活動\n☁️ 天氣 - 查看天氣預報\n💊 健康 - 管理用藥回診\n❓ 幫助 - 功能說明' };
 }
 
 function matchKeywords(text, keywords) {
@@ -720,7 +720,20 @@ async function handlePostback(event, client) {
             case 'explore_category':
                 var category = params.get('category');
                 var activities = await recommendationService.getActivitiesByCategory(category, user);
-                response = flexMessageBuilder.buildCategoryActivities(activities, category);
+                
+                // 如果資料庫沒有該分類的活動，改用 Google Places 搜尋
+                if (!activities || activities.length === 0) {
+                    logger.info('資料庫無 ' + category + ' 活動，改用 Google Places 搜尋');
+                    var searchQuery = category + ' ' + (user.city || '台灣');
+                    var places = await placesService.searchPlaces(searchQuery);
+                    if (places && places.length > 0) {
+                        response = placeFlexBuilder.buildPlaceSearchResults(places, category);
+                    } else {
+                        response = { type: 'text', text: '😕 目前沒有找到「' + category + '」相關活動\n\n試試輸入「新增景點 ' + category + '」搜尋更多！' };
+                    }
+                } else {
+                    response = flexMessageBuilder.buildCategoryActivities(activities, category);
+                }
                 break;
 
             case 'view_activity':
@@ -1119,7 +1132,7 @@ async function handlePostback(event, client) {
                 break;
 
             default:
-                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n🎉 揪團\n👨‍👩‍👧 家人\n❤️ 想去清單\n💡 今日推薦\n💊 健康' };
+                response = { type: 'text', text: '試試：\n🌍 日本5天\n🏠 台南3天\n📋 我的行程\n🏆 達人\n🗺️ 地圖\n🎉 揪團\n👨‍👩‍👧 家人\n❤️ 想去清單\n🔍 新增景點\n💡 今日推薦\n💊 健康' };
         }
 
         if (response) {
