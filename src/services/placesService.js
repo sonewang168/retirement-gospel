@@ -18,26 +18,35 @@ async function searchPlaces(query, region = 'tw') {
     try {
         logger.info('搜尋景點: ' + query);
         
-        // 使用 Text Search API
+        // 使用 Text Search API，加入「景點」關鍵字擴大搜尋
+        var searchQuery = query;
+        // 如果關鍵字很短，加入「景點」幫助搜尋
+        if (query.length <= 4 && !query.includes('景點') && !query.includes('公園') && !query.includes('車站')) {
+            searchQuery = query + ' 景點';
+        }
+        
         var response = await axios.get(PLACES_API_URL + '/textsearch/json', {
             params: {
-                query: query,
+                query: searchQuery,
                 language: 'zh-TW',
                 region: region,
+                type: 'tourist_attraction|park|museum|point_of_interest',
                 key: GOOGLE_API_KEY
             }
         });
 
+        logger.info('Places API 回應狀態: ' + response.data.status);
+        logger.info('Places API 找到結果數: ' + (response.data.results ? response.data.results.length : 0));
+
         if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
-            logger.error('Places API 錯誤: ' + response.data.status);
+            logger.error('Places API 錯誤: ' + response.data.status + ' - ' + (response.data.error_message || ''));
             return [];
         }
 
         var results = response.data.results || [];
-        logger.info('找到 ' + results.length + ' 個景點');
 
-        // 整理結果（最多 5 個）
-        return results.slice(0, 5).map(function(place) {
+        // 整理結果（最多 10 個）
+        return results.slice(0, 10).map(function(place) {
             return {
                 placeId: place.place_id,
                 name: place.name,
