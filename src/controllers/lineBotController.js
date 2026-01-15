@@ -720,7 +720,15 @@ async function handlePostback(event, client) {
             case 'daily_recommendation':
                 var recs = await recommendationService.getDailyRecommendations(user);
                 if (!recs || recs.length === 0) {
-                    response = { type: 'text', text: '😊 目前還沒有推薦活動\n\n試試輸入「新增景點 台北景點」搜尋並加入想去清單！' };
+                    // 資料庫沒有推薦，改用 Google Places 搜尋用戶城市景點
+                    var cityName = user.city || '台北';
+                    logger.info('今日推薦：資料庫無資料，搜尋 ' + cityName + ' 景點');
+                    var places = await placesService.searchPlaces(cityName + ' 熱門景點');
+                    if (places && places.length > 0) {
+                        response = placeFlexBuilder.buildPlaceSearchResults(places, cityName + '推薦景點');
+                    } else {
+                        response = { type: 'text', text: '😊 目前還沒有推薦活動\n\n試試輸入「新增景點 ' + cityName + '」搜尋更多！' };
+                    }
                 } else {
                     response = flexMessageBuilder.buildDailyRecommendations(recs, user);
                 }
