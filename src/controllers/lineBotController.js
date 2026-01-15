@@ -347,10 +347,20 @@ async function handleKeywordMessage(text, user, client, event, conversationState
     }
 
     // ========== 今日推薦 ==========
-    if (matchKeywords(lowerText, ['今日推薦', '推薦', '推薦活動'])) {
-        var recs = await recommendationService.getDailyRecommendations(user);
-        return flexMessageBuilder.buildDailyRecommendations(recs, user);
+if (matchKeywords(lowerText, ['今日推薦', '推薦', '推薦活動'])) {
+    var recs = await recommendationService.getDailyRecommendations(user);
+    if (!recs || recs.length === 0) {
+        var cityName = user.city || '台北';
+        logger.info('今日推薦：資料庫無資料，搜尋 ' + cityName + ' 景點');
+        var places = await placesService.searchPlaces(cityName + ' 熱門景點');
+        if (places && places.length > 0) {
+            return placeFlexBuilder.buildPlaceSearchResults(places, cityName + '推薦景點');
+        } else {
+            return { type: 'text', text: '😊 目前還沒有推薦活動\n\n試試輸入「新增景點 ' + cityName + '」搜尋更多！' };
+        }
     }
+    return flexMessageBuilder.buildDailyRecommendations(recs, user);
+}
 
     // ========== 找活動 ==========
     if (matchKeywords(lowerText, ['找活動', '探索', '附近', '去哪玩'])) {
