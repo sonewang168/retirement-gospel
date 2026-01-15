@@ -1,4 +1,4 @@
-\xEF\xBB\xBF/**
+/**
  * LINE Bot Controller（揪團 + 家人關懷 + 打卡照片 + GPS打卡 + 景點搜尋 整合版）
  */
 const logger = require('../utils/logger');
