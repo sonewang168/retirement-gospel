@@ -25,6 +25,7 @@ app.use('/webhook', express.raw({ type: 'application/json' }));
 
 // 其他路由使用 JSON
 app.use(express.json());
+app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 
 // 靜態檔案
