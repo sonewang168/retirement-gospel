@@ -303,32 +303,90 @@
             height: 22px;
         }
         
-        .features {
-            margin-top: 40px;
+        /* 快速功能按鈕區 */
+        .quick-actions {
+            margin-top: 30px;
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
         }
         
-        .feature {
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 8px;
             background: rgba(255, 255, 255, 0.15);
-            padding: 14px;
             border-radius: 12px;
             backdrop-filter: blur(10px);
+            text-decoration: none;
+            color: white;
+            transition: transform 0.2s, background 0.2s;
         }
         
-        .feature-icon {
-            font-size: 26px;
-            margin-bottom: 6px;
+        .action-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.25);
         }
         
-        .feature-text {
-            font-size: 13px;
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .action-text {
+            font-size: 11px;
             font-weight: 500;
+            text-align: center;
+        }
+        
+        /* 分享按鈕 */
+        .share-section {
+            margin-top: 25px;
+        }
+        
+        .share-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        
+        .share-btn:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* 底部連結 */
+        .footer-links {
+            margin-top: 30px;
+            font-size: 13px;
+        }
+        
+        .footer-link {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+        }
+        
+        .footer-link:active {
+            color: white;
+        }
+        
+        .divider {
+            margin: 0 12px;
+            opacity: 0.5;
         }
         
         .version {
-            margin-top: 40px;
+            margin-top: 20px;
             font-size: 12px;
             opacity: 0.5;
         }
@@ -356,6 +414,7 @@
             <h1>退休福音</h1>
             <p class="subtitle">銀髮族的 AI 旅遊助手</p>
             
+            <!-- 主要按鈕 -->
             <a href="https://line.me/R/ti/p/@024wclps" class="line-btn">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
@@ -363,23 +422,54 @@
                 加入 LINE 好友
             </a>
             
-            <div class="features">
-                <div class="feature">
-                    <div class="feature-icon">🌍</div>
-                    <div class="feature-text">AI 行程規劃</div>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔍</div>
-                    <div class="feature-text">景點搜尋</div>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🎉</div>
-                    <div class="feature-text">揪團活動</div>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">👨‍👩‍👧</div>
-                    <div class="feature-text">家人關懷</div>
-                </div>
+            <!-- 快速功能按鈕 -->
+            <div class="quick-actions">
+                <a href="https://line.me/R/oaMessage/@024wclps/?日本5天" class="action-btn">
+                    <span class="action-icon">🌍</span>
+                    <span class="action-text">AI規劃行程</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?今日推薦" class="action-btn">
+                    <span class="action-icon">💡</span>
+                    <span class="action-text">今日推薦</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?新增景點" class="action-btn">
+                    <span class="action-icon">🔍</span>
+                    <span class="action-text">搜尋景點</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?揪團" class="action-btn">
+                    <span class="action-icon">🎉</span>
+                    <span class="action-text">揪團活動</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?天氣" class="action-btn">
+                    <span class="action-icon">☁️</span>
+                    <span class="action-text">查看天氣</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?家人" class="action-btn">
+                    <span class="action-icon">👨‍👩‍👧</span>
+                    <span class="action-text">家人關懷</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?達人" class="action-btn">
+                    <span class="action-icon">🏆</span>
+                    <span class="action-text">達人等級</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@024wclps/?健康" class="action-btn">
+                    <span class="action-icon">💊</span>
+                    <span class="action-text">健康提醒</span>
+                </a>
+            </div>
+            
+            <!-- 分享按鈕 -->
+            <div class="share-section">
+                <button class="share-btn" onclick="shareApp()">
+                    <span>📤</span> 分享給朋友
+                </button>
+            </div>
+            
+            <!-- 底部連結 -->
+            <div class="footer-links">
+                <a href="https://line.me/R/oaMessage/@024wclps/?幫助" class="footer-link">使用說明</a>
+                <span class="divider">|</span>
+                <a href="https://line.me/R/oaMessage/@024wclps/?客服" class="footer-link">聯繫客服</a>
             </div>
             
             <div class="version">v1.0.0</div>
@@ -403,6 +493,25 @@
             document.getElementById('splash').classList.add('fade-out');
             document.getElementById('main').classList.add('show');
         }, 2500);
+        
+        // 分享功能
+        function shareApp() {
+            var shareData = {
+                title: '退休福音',
+                text: '🌅 退休福音 - 銀髮族的AI旅遊助手\n\n🌍 AI智能行程規劃\n🔍 景點搜尋推薦\n🎉 揪團找伴同遊\n👨‍👩‍👧 家人關懷連結\n\n快來加入我們！',
+                url: 'https://line.me/R/ti/p/@024wclps'
+            };
+            
+            if (navigator.share) {
+                navigator.share(shareData)
+                    .then(function() { console.log('分享成功'); })
+                    .catch(function(err) { console.log('分享取消', err); });
+            } else {
+                // 不支援 Web Share API，改用 LINE 分享
+                var text = encodeURIComponent(shareData.text + '\n' + shareData.url);
+                window.open('https://line.me/R/msg/text/?' + text, '_blank');
+            }
+        }
     </script>
 </body>
 </html>
