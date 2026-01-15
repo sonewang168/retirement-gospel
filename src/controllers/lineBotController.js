@@ -719,25 +719,41 @@ async function handlePostback(event, client) {
 
             case 'daily_recommendation':
                 var recs = await recommendationService.getDailyRecommendations(user);
-                response = flexMessageBuilder.buildDailyRecommendations(recs, user);
+                if (!recs || recs.length === 0) {
+                    response = { type: 'text', text: '😊 目前還沒有推薦活動\n\n試試輸入「新增景點 台北景點」搜尋並加入想去清單！' };
+                } else {
+                    response = flexMessageBuilder.buildDailyRecommendations(recs, user);
+                }
                 break;
 
             case 'explore_category':
                 var category = params.get('category');
+                
+                // 英文到中文分類映射
+                var categoryMap = {
+                    'culture': '文化藝術',
+                    'nature': '自然景觀',
+                    'religious': '宗教聖地',
+                    'food': '美食品嚐',
+                    'sports': '運動健身',
+                    'entertainment': '休閒娛樂'
+                };
+                var categoryName = categoryMap[category] || category;
+                
                 var activities = await recommendationService.getActivitiesByCategory(category, user);
                 
                 // 如果資料庫沒有該分類的活動，改用 Google Places 搜尋
                 if (!activities || activities.length === 0) {
-                    logger.info('資料庫無 ' + category + ' 活動，改用 Google Places 搜尋');
-                    var searchQuery = category + ' ' + (user.city || '台灣');
+                    logger.info('資料庫無 ' + categoryName + ' 活動，改用 Google Places 搜尋');
+                    var searchQuery = categoryName + ' ' + (user.city || '台灣');
                     var places = await placesService.searchPlaces(searchQuery);
                     if (places && places.length > 0) {
-                        response = placeFlexBuilder.buildPlaceSearchResults(places, category);
+                        response = placeFlexBuilder.buildPlaceSearchResults(places, categoryName);
                     } else {
-                        response = { type: 'text', text: '😕 目前沒有找到「' + category + '」相關活動\n\n試試輸入「新增景點 ' + category + '」搜尋更多！' };
+                        response = { type: 'text', text: '😕 目前沒有找到「' + categoryName + '」相關活動\n\n試試輸入「新增景點 ' + categoryName + '」搜尋更多！' };
                     }
                 } else {
-                    response = flexMessageBuilder.buildCategoryActivities(activities, category);
+                    response = flexMessageBuilder.buildCategoryActivities(activities, categoryName);
                 }
                 break;
 
