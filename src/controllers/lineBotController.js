@@ -843,10 +843,10 @@ async function handlePostback(event, client) {
                         }
                         
                         // 加入想去清單
-                        var added = await userService.addToWishlist(user.id, activityId);
-                        if (added === 'exists') {
+                        var added = await userService.saveToWishlist(user.id, activityId);
+                        if (added.exists) {
                             response = { type: 'text', text: '「' + placeName + '」已經在想去清單裡了 😊\n\n輸入「想去清單」查看' };
-                        } else if (added) {
+                        } else if (added.success) {
                             response = placeFlexBuilder.buildAddPlaceSuccess({ name: placeName });
                         } else {
                             response = { type: 'text', text: '⚠️ 新增失敗，請重試' };
