@@ -318,23 +318,22 @@ function buildWishlistCard(list) {
         var col = item.isVisited ? '#27AE60' : '#E74C3C';
         var status = item.isVisited ? '✅ 已去過' : '📍 想去';
         return {
-            type: 'bubble', size: 'micro',
-            header: { type: 'box', layout: 'vertical', backgroundColor: col, paddingAll: 'sm', contents: [{ type: 'text', text: a.name || '活動', weight: 'bold', size: 'sm', color: '#ffffff', wrap: true }] },
-            body: { type: 'box', layout: 'vertical', paddingAll: 'sm', contents: [
-                { type: 'text', text: '📍 ' + (a.city || ''), size: 'xs', color: '#666666' },
-                { type: 'text', text: '⭐ ' + (a.rating || 4.5), size: 'xs', color: '#F39C12', margin: 'sm' },
-                { type: 'text', text: status, size: 'xs', color: col, margin: 'sm', weight: 'bold' }
+            type: 'bubble', size: 'kilo',
+            header: { type: 'box', layout: 'vertical', backgroundColor: col, paddingAll: 'md', contents: [{ type: 'text', text: a.name || '活動', weight: 'bold', size: 'md', color: '#ffffff', wrap: true }] },
+            body: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: [
+                { type: 'text', text: '📍 ' + (a.city || ''), size: 'sm', color: '#666666' },
+                { type: 'text', text: '⭐ ' + (a.rating || 4.5), size: 'sm', color: '#F39C12', margin: 'sm' },
+                { type: 'text', text: status, size: 'sm', color: col, margin: 'sm', weight: 'bold' }
             ]},
-            footer: { type: 'box', layout: 'vertical', paddingAll: 'xs', spacing: 'xs', contents: [
+            footer: { type: 'box', layout: 'vertical', paddingAll: 'sm', spacing: 'sm', contents: [
                 { type: 'box', layout: 'horizontal', contents: [
-                    { type: 'button', action: { type: 'postback', label: '詳情', data: 'action=view_activity&id=' + a.id }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
-                    { type: 'button', action: { type: 'postback', label: item.isVisited ? '想去' : '去過', data: 'action=toggle_visited&id=' + a.id }, style: 'secondary', height: 'sm', flex: 1, margin: 'xs' }
+                    { type: 'button', action: { type: 'postback', label: '📸 +10分', data: 'action=checkin_with_photo&id=' + a.id }, style: 'primary', color: '#9B59B6', height: 'sm', flex: 1 },
+                    { type: 'button', action: { type: 'postback', label: '📍 +20分', data: 'action=checkin_with_gps&id=' + a.id }, style: 'primary', color: '#27AE60', height: 'sm', flex: 1, margin: 'sm' }
                 ]},
-                { type: 'box', layout: 'horizontal', margin: 'xs', contents: [
-                    { type: 'button', action: { type: 'postback', label: '📸+10', data: 'action=checkin_with_photo&id=' + a.id }, style: 'primary', color: '#9B59B6', height: 'sm', flex: 1 },
-                    { type: 'button', action: { type: 'postback', label: '📍+20', data: 'action=checkin_with_gps&id=' + a.id }, style: 'primary', color: '#27AE60', height: 'sm', flex: 1, margin: 'xs' }
-                ]},
-                { type: 'button', action: { type: 'postback', label: '🗑️ 移除', data: 'action=remove_wishlist&id=' + a.id }, style: 'secondary', height: 'sm', margin: 'xs' }
+                { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+                    { type: 'button', action: { type: 'postback', label: item.isVisited ? '📍 想去' : '✅ 去過', data: 'action=toggle_visited&id=' + a.id }, style: 'secondary', height: 'sm', flex: 1 },
+                    { type: 'button', action: { type: 'postback', label: '🗑️ 移除', data: 'action=remove_wishlist&id=' + a.id }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                ]}
             ]}
         };
     });
