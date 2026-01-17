@@ -816,7 +816,7 @@ async function handlePostback(event, client) {
                         if (existingRows.length > 0) {
                             activityId = existingRows[0].id;
                         } else {
-                            // 建立新活動（用原始 SQL）- 修正欄位名稱為 latitude, longitude
+                            // 建立新活動（用原始 SQL）
                             var typeLabel = placesService.getTypeLabel(placeDetails.types);
                             var cityName = placeFlexBuilder.extractCity(placeDetails.address);
                             var [insertResult] = await sequelize.query(
