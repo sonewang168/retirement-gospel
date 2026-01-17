@@ -2,7 +2,6 @@
  * Activity Model
  */
 const { DataTypes } = require('sequelize');
-
 module.exports = (sequelize) => {
     const Activity = sequelize.define('Activity', {
         id: {
@@ -77,7 +76,7 @@ module.exports = (sequelize) => {
             defaultValue: []
         },
         rating: {
-            type: DataTypes.DECIMAL(2, 1),
+            type: DataTypes.DECIMAL(3, 1),
             defaultValue: 4.0
         },
         isFeatured: {
@@ -89,12 +88,24 @@ module.exports = (sequelize) => {
             type: DataTypes.BOOLEAN,
             defaultValue: true,
             field: 'is_active'
+        },
+        // ===== 新增 Google Places 相關欄位 =====
+        imageUrl: {
+            type: DataTypes.TEXT,
+            field: 'image_url'
+        },
+        googlePlaceId: {
+            type: DataTypes.STRING(255),
+            field: 'google_place_id'
+        },
+        source: {
+            type: DataTypes.STRING(50),
+            defaultValue: 'manual'
         }
     }, {
         tableName: 'activities',
         underscored: true,
         timestamps: true
     });
-
     return Activity;
 };
