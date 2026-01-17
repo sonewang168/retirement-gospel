@@ -112,7 +112,6 @@ function buildTimePickerMenu() {
     var times = ['05:00', '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00'];
     var bubbles = [];
     
-    // 分成兩頁
     var page1 = times.slice(0, 6);
     var page2 = times.slice(6);
     
@@ -141,31 +140,11 @@ function buildTimePickerMenu() {
 
 function buildCityPickerMenu() {
     var regions = [
-        {
-            name: '北部',
-            color: '#3498DB',
-            cities: ['台北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣']
-        },
-        {
-            name: '中部',
-            color: '#27AE60',
-            cities: ['苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣']
-        },
-        {
-            name: '南部',
-            color: '#E74C3C',
-            cities: ['嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣']
-        },
-        {
-            name: '東部',
-            color: '#9B59B6',
-            cities: ['宜蘭縣', '花蓮縣', '台東縣']
-        },
-        {
-            name: '離島',
-            color: '#F39C12',
-            cities: ['澎湖縣', '金門縣', '連江縣']
-        }
+        { name: '北部', color: '#3498DB', cities: ['台北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣'] },
+        { name: '中部', color: '#27AE60', cities: ['苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣'] },
+        { name: '南部', color: '#E74C3C', cities: ['嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣'] },
+        { name: '東部', color: '#9B59B6', cities: ['宜蘭縣', '花蓮縣', '台東縣'] },
+        { name: '離島', color: '#F39C12', cities: ['澎湖縣', '金門縣', '連江縣'] }
     ];
 
     var bubbles = regions.map(function(region) {
@@ -326,7 +305,7 @@ function buildWishlistCard(list) {
                 header: { type: 'box', layout: 'vertical', backgroundColor: '#E74C3C', paddingAll: 'lg', contents: [{ type: 'text', text: '❤️ 我的想去清單', weight: 'bold', size: 'lg', color: '#ffffff' }] },
                 body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: [
                     { type: 'text', text: '😢 還沒有收藏活動', size: 'md', color: '#666666' },
-                    { type: 'text', text: '輸入「找活動」開始探索', size: 'sm', color: '#888888', margin: 'md' }
+                    { type: 'text', text: '輸入「找活動」或「新增景點」開始探索', size: 'sm', color: '#888888', margin: 'md', wrap: true }
                 ]},
                 footer: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: [
                     { type: 'button', action: { type: 'message', label: '🔍 找活動', text: '找活動' }, style: 'primary', color: '#E74C3C' }
@@ -339,28 +318,32 @@ function buildWishlistCard(list) {
         var col = item.isVisited ? '#27AE60' : '#E74C3C';
         var status = item.isVisited ? '✅ 已去過' : '📍 想去';
         return {
-            type: 'bubble', size: 'kilo',
-            header: { type: 'box', layout: 'vertical', backgroundColor: col, paddingAll: 'md', contents: [{ type: 'text', text: a.name || '活動', weight: 'bold', size: 'md', color: '#ffffff', wrap: true }] },
-            body: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: [
-                { type: 'text', text: '📍 ' + (a.city || ''), size: 'sm', color: '#666666' },
-                { type: 'text', text: '⭐ ' + (a.rating || 4.5), size: 'sm', color: '#F39C12', margin: 'sm' },
-                { type: 'text', text: status, size: 'sm', color: col, margin: 'sm', weight: 'bold' }
+            type: 'bubble', size: 'micro',
+            header: { type: 'box', layout: 'vertical', backgroundColor: col, paddingAll: 'sm', contents: [{ type: 'text', text: a.name || '活動', weight: 'bold', size: 'sm', color: '#ffffff', wrap: true }] },
+            body: { type: 'box', layout: 'vertical', paddingAll: 'sm', contents: [
+                { type: 'text', text: '📍 ' + (a.city || ''), size: 'xs', color: '#666666' },
+                { type: 'text', text: '⭐ ' + (a.rating || 4.5), size: 'xs', color: '#F39C12', margin: 'sm' },
+                { type: 'text', text: status, size: 'xs', color: col, margin: 'sm', weight: 'bold' }
             ]},
-            footer: { type: 'box', layout: 'vertical', paddingAll: 'sm', contents: [
+            footer: { type: 'box', layout: 'vertical', paddingAll: 'xs', spacing: 'xs', contents: [
                 { type: 'box', layout: 'horizontal', contents: [
                     { type: 'button', action: { type: 'postback', label: '詳情', data: 'action=view_activity&id=' + a.id }, style: 'primary', color: '#3498DB', height: 'sm', flex: 1 },
-                    { type: 'button', action: { type: 'postback', label: item.isVisited ? '📍想去' : '✅去過', data: 'action=toggle_visited&id=' + a.id }, style: 'secondary', height: 'sm', flex: 1, margin: 'sm' }
+                    { type: 'button', action: { type: 'postback', label: item.isVisited ? '想去' : '去過', data: 'action=toggle_visited&id=' + a.id }, style: 'secondary', height: 'sm', flex: 1, margin: 'xs' }
                 ]},
-                { type: 'button', action: { type: 'postback', label: '🗑️ 移除', data: 'action=remove_wishlist&id=' + a.id }, style: 'secondary', height: 'sm', margin: 'sm' }
+                { type: 'box', layout: 'horizontal', margin: 'xs', contents: [
+                    { type: 'button', action: { type: 'postback', label: '📸+10', data: 'action=checkin_with_photo&id=' + a.id }, style: 'primary', color: '#9B59B6', height: 'sm', flex: 1 },
+                    { type: 'button', action: { type: 'postback', label: '📍+20', data: 'action=checkin_with_gps&id=' + a.id }, style: 'primary', color: '#27AE60', height: 'sm', flex: 1, margin: 'xs' }
+                ]},
+                { type: 'button', action: { type: 'postback', label: '🗑️ 移除', data: 'action=remove_wishlist&id=' + a.id }, style: 'secondary', height: 'sm', margin: 'xs' }
             ]}
         };
     });
     return { type: 'flex', altText: '想去清單(' + list.length + '個)', contents: { type: 'carousel', contents: bubbles } };
 }
+
 function buildExpertCard(status) {
     if (!status) return { type: 'text', text: '無法取得達人資訊' };
 
-    var user = status.user;
     var progressBar = '';
     var progressPercent = status.progress || 0;
     var filled = Math.round(progressPercent / 10);
@@ -443,16 +426,15 @@ function buildMapCard(visitedList) {
                 header: { type: 'box', layout: 'vertical', backgroundColor: '#3498DB', paddingAll: 'lg', contents: [{ type: 'text', text: '🗺️ 我的探索地圖', weight: 'bold', size: 'lg', color: '#ffffff' }] },
                 body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: [
                     { type: 'text', text: '😢 還沒有打卡紀錄', size: 'md', color: '#666666' },
-                    { type: 'text', text: '去「找活動」探索景點，標記「去過」開始收集！', size: 'sm', color: '#888888', margin: 'md', wrap: true }
+                    { type: 'text', text: '去「想去清單」點「📸+10」或「📍+20」開始打卡！', size: 'sm', color: '#888888', margin: 'md', wrap: true }
                 ]},
                 footer: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: [
-                    { type: 'button', action: { type: 'message', label: '🔍 找活動', text: '找活動' }, style: 'primary', color: '#E74C3C' }
+                    { type: 'button', action: { type: 'message', label: '❤️ 想去清單', text: '想去清單' }, style: 'primary', color: '#E74C3C' }
                 ]}
             }
         };
     }
 
-    // 依城市分組
     var cityGroups = {};
     visitedList.forEach(function(item) {
         var city = item.activity ? item.activity.city : '其他';
@@ -476,7 +458,6 @@ function buildMapCard(visitedList) {
             spots.push({ type: 'text', text: '...還有 ' + (items.length - 5) + ' 個', size: 'xs', color: '#888888', margin: 'sm' });
         }
 
-        // Google Maps 連結
         var firstItem = items[0];
         var mapQuery = firstItem.activity ? encodeURIComponent(firstItem.activity.address || firstItem.activity.name) : '';
 
@@ -504,6 +485,7 @@ function buildMapCard(visitedList) {
         contents: { type: 'carousel', contents: bubbles }
     };
 }
+
 module.exports = {
     buildDailyRecommendations: buildDailyRecommendations,
     buildActivityDetail: buildActivityDetail,
@@ -523,6 +505,6 @@ module.exports = {
     buildOnboardingStep1: buildOnboardingStep1,
     buildNearbyActivities: buildNearbyActivities,
     buildWishlistCard: buildWishlistCard,
-	buildExpertCard: buildExpertCard,
+    buildExpertCard: buildExpertCard,
     buildMapCard: buildMapCard
 };
