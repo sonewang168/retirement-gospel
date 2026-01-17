@@ -816,12 +816,12 @@ async function handlePostback(event, client) {
                         if (existingRows.length > 0) {
                             activityId = existingRows[0].id;
                         } else {
-                            // 建立新活動（用原始 SQL）
+                            // 建立新活動（用原始 SQL）- 修正欄位名稱為 latitude, longitude
                             var typeLabel = placesService.getTypeLabel(placeDetails.types);
                             var cityName = placeFlexBuilder.extractCity(placeDetails.address);
                             var [insertResult] = await sequelize.query(
-                                `INSERT INTO activities (id, name, description, category, city, address, lat, lng, image_url, google_place_id, rating, source, created_at, updated_at)
-                                 VALUES (gen_random_uuid(), :name, :description, :category, :city, :address, :lat, :lng, :imageUrl, :googlePlaceId, :rating, :source, NOW(), NOW())
+                                `INSERT INTO activities (id, name, description, category, city, address, latitude, longitude, image_url, google_place_id, rating, source, created_at, updated_at)
+                                 VALUES (gen_random_uuid(), :name, :description, :category, :city, :address, :latitude, :longitude, :imageUrl, :googlePlaceId, :rating, :source, NOW(), NOW())
                                  RETURNING id`,
                                 {
                                     replacements: {
@@ -830,8 +830,8 @@ async function handlePostback(event, client) {
                                         category: typeLabel,
                                         city: cityName,
                                         address: placeDetails.address || '',
-                                        lat: placeDetails.lat || 0,
-                                        lng: placeDetails.lng || 0,
+                                        latitude: placeDetails.lat || 0,
+                                        longitude: placeDetails.lng || 0,
                                         imageUrl: placeDetails.photo || null,
                                         googlePlaceId: placeId,
                                         rating: placeDetails.rating || null,
