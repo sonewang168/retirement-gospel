@@ -917,6 +917,7 @@ async function handlePostback(event, client) {
                 break;
 
             case 'my_wishlist':
+            case 'wishlist':
                 var wishlist = await userService.getWishlist(user.id);
                 response = flexMessageBuilder.buildWishlistCard(wishlist);
                 break;
