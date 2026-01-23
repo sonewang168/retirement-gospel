@@ -354,7 +354,12 @@ function buildExpertCard(status) {
     var cats = status.categoryCount || {};
     var catNames = { culture: '文化', nature: '自然', religion: '宗教', food: '美食', sports: '運動', entertainment: '娛樂' };
     Object.keys(cats).forEach(function(cat) {
-        categoryText += catNames[cat] + ':' + cats[cat] + ' ';
+        // 處理 undefined/null category（用戶自訂景點）
+        if (cat === 'undefined' || cat === 'null' || cat === '') {
+            categoryText += '🏷️自訂:' + cats[cat] + ' ';
+        } else {
+            categoryText += (catNames[cat] || cat) + ':' + cats[cat] + ' ';
+        }
     });
 
     var badgeText = (status.badges || []).slice(0, 6).join('\n') || '尚無徽章';
